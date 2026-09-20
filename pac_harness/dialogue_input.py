@@ -121,6 +121,10 @@ def read_dialogue_input(prompt: str) -> str:
     """Like input(), with immediate Ctrl+G (``'\\x07'``) on Windows consoles."""
     backend = _windows_backend()
     if backend is None:
+        if os.name == "posix" and sys.stdin.isatty() and sys.stdout.isatty():
+            from .posix_console import dialogue_reader
+            with dialogue_reader() as read:
+                return _read_line(prompt, read, _write_console)
         return builtins.input(prompt)
 
     def read_char():

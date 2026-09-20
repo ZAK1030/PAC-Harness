@@ -87,9 +87,13 @@ class ConsoleHotkey:
                 try:
                     if self.interactive is None and (sys.stdin is None or not sys.stdin.isatty()):
                         return False
-                    if os.name != "nt":
+                    if os.name == "posix":
+                        from .posix_console import PosixKeyState
+                        self.key_state = PosixKeyState()
+                    elif os.name == "nt":
+                        self.key_state = _WindowsKeyState()
+                    else:
                         return False
-                    self.key_state = _WindowsKeyState()
                 except (AttributeError, OSError) as exc:
                     self.error = str(exc)
                     return False
@@ -104,8 +108,10 @@ class ConsoleHotkey:
     def _poll_once(self):
         # 与 paused()/consume() 使用同一把锁，按键不会落到输入对话的间隙中。
         with self._lock:
+            if self._pause_count:
+                return
             down = bool(self.key_state())
-            if down and not self._last_down and not self._pause_count:
+            if down and (not self._last_down or (getattr(self.key_state, "pulses", False) is True)):
                 self._requested = True
             self._last_down = down
 
@@ -118,6 +124,8 @@ class ConsoleHotkey:
             with self._lock:
                 self.error = f"{type(exc).__name__}: {exc}"
                 self.available = False
+                if (getattr(self.key_state, "pulses", False) is True):
+                    self.key_state.close()
 
     def pending(self):
         with self._lock:
@@ -132,6 +140,8 @@ class ConsoleHotkey:
     @contextmanager
     def paused(self):
         with self._lock:
+            if not self._pause_count and (getattr(self.key_state, "pulses", False) is True):
+                self.key_state.pause()
             self._pause_count += 1
         try:
             yield
@@ -140,8 +150,13 @@ class ConsoleHotkey:
                 self._pause_count -= 1
                 if self.key_state is not None:
                     try:
-                        # 抑制退出 input() 时仍按住的 Ctrl+G，直到松开再按。
-                        self._last_down = bool(self.key_state())
+                        if (getattr(self.key_state, "pulses", False) is True):
+                            if not self._pause_count:
+                                self.key_state.resume()
+                            self._last_down = False
+                        else:
+                            # Suppress a held Windows key after dialogue input.
+                            self._last_down = bool(self.key_state())
                     except Exception as exc:
                         self.error = f"{type(exc).__name__}: {exc}"
                         self.available = False
@@ -153,5 +168,8 @@ class ConsoleHotkey:
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=1)
         with self._lock:
+            if (getattr(self.key_state, "pulses", False) is True):
+                self.key_state.close()
+                self.key_state = None
             self.available = False
             self._requested = False

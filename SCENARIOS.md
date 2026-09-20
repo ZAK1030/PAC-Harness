@@ -2,7 +2,7 @@
 
 本指南针对当前 `PAC-Harness 0.1.0`。推荐运行 `python -m pac_harness --web`，使用 **新建场景 → 创建并开始对话**。网页会保存场景描述并自动交给 ToUser，详见 [网页工作台指南](WORKBENCH.md)。以下是可替代网页向导的手动流程。
 
-Linux 使用 `python3` 替换 `python`，路径使用 POSIX 格式；网页向导、`--assist`、任务恢复和离线测试均可用。Linux 终端暂不支持 Ctrl+G 全局热键，直接在另一个终端运行 `python3 -m pac_harness --assist --run-dir logs/<实际运行目录>`。
+Linux 使用 `python3` 和 POSIX 路径；前台交互终端支持 Ctrl+G 进入/退出协助。单独运行 `--assist` 前先停止任务释放项目锁，详见 [Linux 指南](LINUX.md)。
 
 ## 1. 确定场景边界
 

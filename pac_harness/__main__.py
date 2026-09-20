@@ -84,7 +84,7 @@ def _main(argv=None):
     assistant = ToUser(root, config.get("to_user")) if enabled else None
     hotkey = ConsoleHotkey(enabled=enabled)
     harness = Harness(root, environment, planner, detector, identity=config["adapter"], to_user=assistant, hotkey=hotkey)
-    if os.name == "nt":
+    if os.name in {"nt", "posix"}:
         print("Ctrl+G：请求 ToUser（在当前模型请求/动作结束后的边界处理）；Ctrl+C：退出。")
     else:
         print("Linux：请使用 --assist 或网页工作台请求 ToUser；Ctrl+C：退出。")

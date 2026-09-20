@@ -93,7 +93,7 @@ class CodexBackendTests(unittest.TestCase):
             return SimpleNamespace(returncode=0, stdout="TO_USER_TEST_COUNT=3", stderr="")
         result = CodexBackend(runner=runner).validate(self.root, audit=self.root)
         self.assertTrue(result["passed"])
-        self.assertIn("permissions.harness_to_user.network.enabled=false", commands[0])
+        self.assertTrue("permissions.harness_to_user.network.enabled=false" in commands[0] or "--unshare-net" in commands[0])
 
     def test_linux_settings_do_not_emit_windows_sandbox_option(self):
         with patch("pac_harness.codex_backend.os.name", "posix"):
@@ -105,10 +105,12 @@ class CodexBackendTests(unittest.TestCase):
         def runner(command, **kwargs):
             commands.append(command)
             return SimpleNamespace(returncode=0, stdout="TO_USER_TEST_COUNT=2", stderr="")
-        with patch("pac_harness.codex_backend.os.name", "posix"):
+        with patch("pac_harness.codex_backend.os.name", "posix"), patch("pac_harness.codex_backend.shutil.which", return_value="bwrap"):
             result = CodexBackend(runner=runner).validate(self.root, audit=self.root)
         self.assertTrue(result["passed"])
-        self.assertEqual(commands[0][0], __import__("sys").executable)
+        self.assertEqual(commands[0][0], "bwrap")
+        self.assertIn("--unshare-net", commands[0])
+        self.assertIn(__import__("sys").executable, commands[0])
         self.assertNotIn("permission-profile", commands[0])
 
 

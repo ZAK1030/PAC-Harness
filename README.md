@@ -143,14 +143,14 @@ ToUser 也可以作为长期协作者使用：要求它分析问题、修复代�
 
 ## ToUser
 
-Windows 交互终端按 **Ctrl+G** 请求 ToUser；请求在当前模型调用/动作的边界处理，不强行中断已经发送的动作。其他终端或任务停止后，可显式运行：
+Windows 或 Linux 前台交互终端按 **Ctrl+G** 请求 ToUser；请求在当前模型调用/动作的边界处理，不强行中断已经发送的动作。其他终端或任务停止后，可显式运行：
 
 ```powershell
 python -m pac_harness --assist
 python -m pac_harness --assist --run-dir logs/<实际运行目录>
 ```
 
-ToUser 使用本机 `codex exec`，同次对话通过 `resume` 保持连续；继承模型连接设置，可用 `to_user.model`、`to_user.reasoning_effort`、`to_user.codex_path` 覆盖。它没有自动继承外部插件和服务权限。Windows 使用 Codex 的隔离验证命令；Linux 使用同一个固定测试命令在隔离暂存目录执行，不依赖 Windows sandbox profile。Linux 终端暂不启用 Ctrl+G 全局热键，请使用 `--assist` 或网页工作台；核心运行和 ToUser 仍可正常使用。
+ToUser 使用本机 `codex exec`，同次对话通过 `resume` 保持连续；继承模型连接设置，可用 `to_user.model`、`to_user.reasoning_effort`、`to_user.codex_path` 覆盖。它没有自动继承外部插件和服务权限。Windows 使用 Codex 的隔离验证命令；Linux 使用 bubblewrap 限制离线测试的写入范围与网络，沙箱不可用时拒绝应用修改。Linux 支持前台 TTY 的 Ctrl+G 进入和退出协助，详见 [Linux 使用指南](LINUX.md)。
 
 它在隔离副本内查看源代码、当前上下文和声明的证据，编辑后由父进程进行语法检查、沙箱内离线测试、只读证据校验与并发修改校验。保存差异及备份后逐文件原子替换，遇错尝试回滚；这不是跨文件数据库事务，应用期间不应启动另一实例。测试数量必须大于零。
 

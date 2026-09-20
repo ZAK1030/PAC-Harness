@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
+import platform
 
 from .codex_connection import model_connection, CodexConnectionError
 from .codex_errors import codex_failure_detail
@@ -64,8 +65,12 @@ def find_codex(configured=None):
     found = shutil.which("codex")
     if found:
         return found
-    candidates = sorted(Path.home().glob(
-        ".vscode/extensions/openai.chatgpt-*/bin/*/codex*"), reverse=True)
+    arch = "aarch64" if platform.machine().lower() in {"arm64", "aarch64"} else "x86_64"
+    folder = ("windows" if os.name == "nt" else "linux") + "-" + arch
+    binary = "codex.exe" if os.name == "nt" else "codex"
+    candidates = sorted((p for p in Path.home().glob(
+        f".vscode/extensions/openai.chatgpt-*/bin/{folder}/{binary}")
+        if p.is_file() and os.access(p, os.X_OK)), reverse=True)
     if candidates:
         return str(candidates[0])
     raise ToUserError("未找到本地 Codex CLI；请安装或设置 to_user.codex_path。")
@@ -152,16 +157,20 @@ class CodexBackend:
                 "print('TO_USER_TEST_COUNT='+str(count)); "
                 "result=unittest.TextTestRunner(verbosity=1).run(suite); "
                 "sys.exit(0 if count and result.wasSuccessful() else 1)")
-        # The staged workspace is already isolated. Windows uses the Codex
-        # sandbox command; on POSIX run only the fixed test command in that
-        # staging directory so the same verifier works without Windows profiles.
+        # A staging directory alone is NOT a sandbox. Fail closed if unavailable.
         if os.name == "nt":
             command = [cli, "sandbox", "--permission-profile", "harness_to_user",
                        "-c", 'permissions.harness_to_user.extends=":workspace"',
                        "-c", "permissions.harness_to_user.network.enabled=false", "--cd", str(stage),
                        sys.executable, "-X", "utf8", "-c", code]
         else:
-            command = [sys.executable, "-X", "utf8", "-c", code]
+            bwrap = shutil.which("bwrap")
+            if not bwrap:
+                raise ToUserError("Linux 离线验证需要 bubblewrap（bwrap）；未应用修改。")
+            command = [bwrap, "--die-with-parent", "--unshare-net", "--unshare-pid",
+                       "--ro-bind", "/", "/", "--tmpfs", "/tmp",
+                       "--bind", str(stage), str(stage), "--proc", "/proc", "--dev", "/dev",
+                       "--chdir", str(stage), "--", sys.executable, "-X", "utf8", "-c", code]
         try:
             result = self.runner(command, cwd=str(stage), env=_safe_env(), capture_output=True,
                                  text=True, encoding="utf-8", errors="replace", shell=False,
