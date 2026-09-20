@@ -47,40 +47,25 @@ class WorkbenchTests(unittest.TestCase):
             time.sleep(.01)
         self.fail(self.app.sessions[sid]["view"])
 
-    def test_scene_does_not_copy_memory_or_config_and_rejects_overwrite(self):
-        self.app.create("review", "整理文档，接口待确认")
-        scene = self.app.scene("review")
-        self.assertIn("整理文档", (scene / "SCENE.md").read_text(encoding="utf-8"))
-        self.assertNotIn("PRIVATE", (scene / "memories/shared.md").read_text(encoding="utf-8"))
-        self.assertNotIn("PRIVATE", (scene / "config.json").read_text(encoding="utf-8"))
-        with self.assertRaises(ValueError):
-            self.app.create("review", "overwrite")
-        for name in ("../escape", "C:/escape", "core", "a/b"):
-            with self.assertRaises(ValueError):
-                self.app.create(name, "test")
-
-    def test_multiturn_persistence_and_scene_separation(self):
-        self.app.create("one", "first")
-        self.app.create("two", "second")
-        sid = self.app.start("one", "hello\nworld")["id"]
+    def test_multiturn_persistence_and_project_exclusivity(self):
+        sid = self.app.start("hello\nworld")["id"]
         self.until(sid, "waiting")
         with self.assertRaises(ValueError):
-            self.app.start("one", "duplicate")
+            self.app.start("duplicate")
         self.app.send(sid, "next")
         self.until(sid, "waiting")
-        history = self.app.history("one")
+        history = self.app.history()
         self.assertEqual(len(history[0]["messages"]), 4)
-        self.assertEqual(self.app.history("two"), [])
         restarted = Workbench(self.root)
-        self.assertEqual(restarted.history("one")[0]["status"], "interrupted")
+        self.assertEqual(restarted.history()[0]["status"], "interrupted")
         self.app.close(sid)
         self.until(sid, "finished")
 
     def test_project_lock_blocks_assistance(self):
         with RunLock(self.root / "maintenance/web-active"):
-            sid = self.app.start("core", "hello")["id"]
+            sid = self.app.start("hello")["id"]
             self.until(sid, "error")
-        self.assertIn("already in use", self.app.history("core")[0]["messages"][-1]["content"])
+        self.assertIn("already in use", self.app.history()[0]["messages"][-1]["content"])
 
     def test_real_to_user_pipeline_applies_and_exposes_audit(self):
         from pac_harness.to_user import ToUser
@@ -95,19 +80,16 @@ class WorkbenchTests(unittest.TestCase):
                 return {"passed": True, "kind": "offline test double"}
 
         self.app.assistant_factory = lambda root, config, **io: ToUser(root, config, backend=Backend(), **io)
-        sid = self.app.start("core", "更新知识")["id"]
+        sid = self.app.start("更新知识")["id"]
         self.until(sid, "finished")
         self.assertEqual((self.root / "memories/shared.md").read_text(), "confirmed knowledge")
-        self.assertEqual(self.app.history("core")[0]["result"]["status"], "applied")
-        self.assertEqual(len(self.app.audit("core")), 2)
+        self.assertEqual(self.app.history()[0]["result"]["status"], "applied")
+        self.assertEqual(len(self.app.audit()), 2)
 
-    def test_repaired_to_user_update_and_audit_stay_in_active_scene(self):
+    def test_repaired_to_user_update_and_audit_stay_in_current_project(self):
         from pac_harness.to_user import ToUser
 
-        self.app.create("one", "first")
-        self.app.create("two", "second")
-        first = self.app.scene("one")
-        other_before = (self.app.scene("two") / "memories/shared.md").read_bytes()
+        first = self.root
 
         class Backend:
             attempts = 0
@@ -127,28 +109,24 @@ class WorkbenchTests(unittest.TestCase):
 
         backend = Backend()
         self.app.assistant_factory = lambda root, config, **io: ToUser(root, config, backend=backend, **io)
-        sid = self.app.start("one", "修复并保存长期知识")["id"]
+        sid = self.app.start("修复并保存长期知识")["id"]
         self.until(sid, "finished")
-        result = self.app.history("one")[0]["result"]
+        result = self.app.history()[0]["result"]
         self.assertEqual(result["status"], "applied")
         self.assertFalse(result["restart_required"])
         self.assertEqual(backend.attempts, 2)
         self.assertEqual((first / "memories/shared.md").read_text(encoding="utf-8"), "confirmed after repair")
-        self.assertEqual((self.root / "memories/shared.md").read_text(), "PRIVATE OLD MEMORY")
-        self.assertEqual((self.app.scene("two") / "memories/shared.md").read_bytes(), other_before)
-        audits = self.app.audit("one")
+        audits = self.app.audit()
         repaired = [item for item in audits if "repair-" in item["path"]]
         self.assertEqual({Path(item["path"]).name for item in repaired},
                          {"changes.diff", "validation.json", "offline-tests.txt"})
         self.assertTrue(any("specific failed assertion" in item["text"] for item in audits))
-        self.assertEqual(self.app.audit("core"), [])
-        self.assertEqual(self.app.audit("two"), [])
 
     def test_audit_excludes_workspace_and_rejects_linked_evidence(self):
         session = self.root / "maintenance/to-user-example"
         write_json(session / "workspace/turn-001/validation.json", {"private": "staged workspace"})
         write_json(session / "turn-001/repair-001/validation.json", {"passed": True})
-        audits = self.app.audit("core")
+        audits = self.app.audit()
         self.assertEqual(len(audits), 1)
         self.assertNotIn("workspace", audits[0]["path"])
         outside = self.root / "private.txt"
@@ -159,7 +137,7 @@ class WorkbenchTests(unittest.TestCase):
         except OSError:
             return  # Windows may not permit creating test symlinks.
         with self.assertRaises(ValueError):
-            self.app.audit("core")
+            self.app.audit()
 
     def test_http_auth_origin_and_invalid_path(self):
         server, token = make_server(self.app, 0)
@@ -168,18 +146,25 @@ class WorkbenchTests(unittest.TestCase):
         base = f"http://127.0.0.1:{server.server_port}"
         try:
             with urlopen(base) as response:
-                self.assertIn("场景".encode(), response.read())
+                page = response.read().decode()
+                self.assertIn("ToUser", page)
+                self.assertNotIn('id="wizard"', page)
+                self.assertNotIn('id="newScene"', page)
             for headers in ({}, {"X-Workbench-Token": token, "Origin": "https://evil.example"},
                             {"X-Workbench-Token": token, "Host": "evil.example"}):
                 with self.assertRaises(HTTPError) as error:
-                    urlopen(Request(base + "/api/scenes", headers=headers))
+                    urlopen(Request(base + "/api/project", headers=headers))
                 self.assertEqual(error.exception.code, 403)
                 error.exception.close()
-            with urlopen(Request(base + "/api/scenes", headers={"X-Workbench-Token": token})) as response:
-                self.assertEqual(json.load(response)[0]["id"], "core")
+            with urlopen(Request(base + "/api/project", headers={"X-Workbench-Token": token})) as response:
+                self.assertEqual(json.load(response)["path"], str(self.root.resolve()))
+            with self.assertRaises(HTTPError) as error:
+                urlopen(Request(base + "/api/scenes", headers={"X-Workbench-Token": token}))
+            self.assertEqual(error.exception.code, 404)
+            error.exception.close()
             with self.assertRaises(HTTPError) as error:
                 urlopen(Request(base + "/api/create", data=json.dumps({"name": "../x", "description": "x"}).encode(), headers={"X-Workbench-Token": token}))
-            self.assertEqual(error.exception.code, 400)
+            self.assertEqual(error.exception.code, 404)
             error.exception.close()
         finally:
             server.shutdown()

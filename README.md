@@ -4,14 +4,66 @@
 
 从现有 Harness 项目提取的通用三 Agent 运行框架。保留 **Planner → action → Detector post → Planner**、按需工具、任务状态、日志、记忆和主动 ToUser；具体场景通过独立适配器接入。
 
-当前版本：**0.1.0，通用提取版**。这是可运行的基础框架；接入新场景仍需实现动作与观察适配器、提供相应知识并验证效果。默认示例是本地列表排序，不代表模型已能自动操作任意业务系统。
+当前版本：**0.1.0，通用提取版**。这是可运行的基础框架；实际业务仍需实现动作与观察适配器、提供相应知识并验证效果。默认示例是本地列表排序，不代表模型已能自动操作任意业务系统。
+
+## 环境准备（先完成这一步）
+
+要求 **Python 3.11+**。建议使用虚拟环境，按“创建 → 激活 → 安装项目”的顺序执行，确保依赖安装在虚拟环境中。Windows 与 Linux 共用同一套源码。
+
+### Windows（PowerShell）
+
+```powershell
+cd C:\Biology\Harness-Core
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e .
+```
+
+### Linux（Bash）
+
+将路径替换为实际项目目录：
+
+```bash
+cd /path/to/PAC-Harness
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+```
+
+创建环境和安装项目通常只需执行一次；以后打开新终端，进入项目目录后重新执行对应的激活命令即可。退出虚拟环境使用 `deactivate`。已有 Python 3.11+ 的 Conda 环境也可直接使用。
+
+激活后，下文的 `python -m pac_harness ...` 命令在两个系统中相同；切换操作系统时需重新创建虚拟环境。
+
+### 按功能准备依赖
+
+| 功能 | 需要准备 |
+|---|---|
+| 离线演示、核心测试 | Python；无需模型密钥或设备 SDK |
+| Planner / Detector 真实模型 | 模型连接配置与密钥环境变量，见下方“使用真实模型” |
+| ToUser 终端 / 网页对话 | 本机可用的 Codex CLI 与登录/连接配置；Linux 修改验证另需 bubblewrap，见 [Linux 指南](LINUX.md) |
+| 摄像头与机械臂 | 对应系统的驱动、SDK 和设备权限，见 [设备接入指南](DEVICES.md) |
+
+### 两个系统有哪些操作差异？
+
+运行参数、适配器接口、memory / skill 格式和网页用法相同；主要差异是环境准备与系统接口：
+
+| 项目 | Windows | Linux |
+|---|---|---|
+| 项目路径 | `C:\Biology\Harness-Core` | 如 `/home/user/PAC-Harness` |
+| 设置环境变量 | `$env:OPENAI_API_KEY = '<你的密钥>'` | `export OPENAI_API_KEY='<你的密钥>'` |
+| 虚拟环境激活 | `.\.venv\Scripts\Activate.ps1` | `source .venv/bin/activate` |
+| ToUser 离线验证 | Windows Codex 沙箱 | bubblewrap 与系统命名空间支持 |
+| 设备接入 | Windows 驱动与 SDK | Linux 驱动、SDK、设备权限 |
+
+终端热键和文件锁已在代码中按系统适配。硬件相关代码仍需在目标系统验收；Windows 的厂商二进制库不能直接当作 Linux 驱动使用。
 
 ## 快速运行
 
 要求 Python 3.11+；核心和离线演示只使用标准库，无需模型密钥。Windows、Linux 均支持核心运行、文件锁、ToUser 隔离验证和本地 Web 工作台。
 
-```powershell
-cd C:\Biology\Harness-Core
+在上述项目目录及已准备的环境中执行（Windows / Linux 通用）：
+
+```bash
 python -m pac_harness --demo
 python -m unittest discover -s tests -v
 ```
@@ -66,6 +118,10 @@ flowchart LR
 
 ## 使用真实模型
 
+**接通模型不等于接通设备。** 使用设备需要完成模型连接、摄像头观察、机械臂动作适配与验证。默认列表排序示例不会自动打开相机或连接机械臂。
+
+### 配置模型连接
+
 复制 `config.json` 为 `config.local.json`，配置 Planner/Detector 的 `model` 和 `base_url`。密钥仅从 `api_key_env` 指定的环境变量读取，配置中不要写密钥。
 
 ```powershell
@@ -73,75 +129,36 @@ $env:OPENAI_API_KEY = '<你的密钥>'
 python -m pac_harness --config config.local.json --task '将示例列表按升序排列'
 ```
 
-当前模型传输实现使用 Chat Completions 兼容接口与 JSON 工具协议：模型先返回 `tool_calls`，核心执行注册的只读工具、补回结果，再取得最终计划或报告。支持按需图像内容；所选模型必须支持对应输入和 JSON 模式。`reasoning_effort` 可选，允许值由提供方决定。新增模型供应商也可实现 `complete(messages) -> dict` 注入 `Agent`。
+Linux Bash 使用 `export` 设置同一个环境变量：
 
-## 机械臂通用后端
-
-基础运动接口已独立为 `pac_harness.robot_backends`，提供 `RokaeBackend`、`PiperBackend`、`FrankaFR3Backend` 和不接触硬件的 `SimRobotBackend`。Piper 使用场景侧注入 AgileX `piper_sdk` driver；FR3 使用 `libfranka`/`pylibfranka` driver。Core 不强制安装任何厂商 SDK，也不会自动连接或发送运动指令。接口、限位和实机接入步骤见 [ROBOT_BACKENDS.md](ROBOT_BACKENDS.md)。
-
-代码不会把任务指令变成任意 shell 命令。动作只能来自适配器公布的目录；模型提出不存在的动作或无效参数时返回规划反馈。
-
-## 接入新场景
-
-### 网页向导（推荐）
-
-```powershell
-python -m pac_harness --web
+```bash
+export OPENAI_API_KEY='<你的密钥>'
+python -m pac_harness --config config.local.json --task '将示例列表按升序排列'
 ```
 
-打开终端输出的完整本机链接（包含访问令牌），点击 **新建场景**，填写场景标识和需求描述，再点击 **创建并开始对话**。场景保存在 `scenes/<标识>/`；描述保存为 `SCENE.md`，并自动成为 ToUser 的第一条消息。网页提供多行输入、连续对话、历史记录和修改/验证结果。无需额外安装 Web 依赖；真实对话仍需本机 Codex CLI。端口冲突时可加 `--port 8766`。
 
-向导生成独立代码副本、空白场景记忆和待配置的模型/适配器，不复制当前项目的业务配置、技能、日志或记忆。它不自动宣称场景已可运行。根据 ToUser 的说明完成配置、离线测试和预览后再运行业务。详细功能与限制见 [网页工作台指南](WORKBENCH.md)。下面保留手动接入流程。
+当前模型传输实现使用 Chat Completions 兼容接口与 JSON 工具协议：模型先返回 `tool_calls`，核心执行注册的只读工具、补回结果，再取得最终计划或报告。支持按需图像内容；所选模型必须支持对应输入和 JSON 模式。`reasoning_effort` 可选，允许值由提供方决定。新增模型供应商也可实现 `complete(messages) -> dict` 注入 `Agent`。
 
-**一个场景是独立项目目录，包含它自己的动作适配器、知识、配置和运行记录。** 改一句任务描述只能改变目标，不能凭空增加访问设备、网站或业务系统的能力。
+### 加入摄像头
 
-当前推荐按以下步骤接入；完整可复制命令见 [新场景操作指南](SCENARIOS.md)：
+普通 RGB 相机可使用新增的 `examples.camera_observation:create`。在项目配置的 `adapter.settings.cameras` 下，为每台相机填写唯一名称、`factory: "pac_harness.devices:opencv_camera"` 和 `settings: {"source": 0}`；第二台使用另一个名称及正确编号。完整可复制 JSON 见 [摄像头配置](DEVICES.md#1-普通-rgb-摄像头)。不要覆盖自己的模型配置。
 
-1. **建独立目录**：从干净的 Core 模板复制源码、通用记忆、角色提示词、配置和测试，例如 `C:\Biology\Harness-Scenes\document-review`。不要复制其他场景的知识、日志、密钥或维护记录。
-2. **描述场景**：复制并填写 [SCENE.md 模板](templates/SCENE.md)，说明目标、输入、能执行的操作、可用接口及如何判断完成。
-3. **主动打开 ToUser**：在新目录执行 `python -m pac_harness --assist --task '建立这个新场景，请先阅读 SCENE.md'`。在对话中要求它澄清缺项、实现适配器和离线测试，并把长期知识写入本场景的记忆或技能。
-4. **接上业务能力**：适配器实现 `observe/actions/validate/execute/reconcile/tools/close`。例如文档整理场景要提供读取文档、保存整理结果等实际接口；只写提示词还不能运行。具体契约见 [ADAPTERS.md](ADAPTERS.md)。
-5. **配置并验证**：人工按 ToUser 给出的说明设置本场景配置的 `adapter.factory`、`adapter.settings` 和模型；先跑离线测试，再用 `--preview` 检查规划，最后启动实际任务。
+```bash
+python -m pip install opencv-python
+python -m pac_harness --config config.local.json --observe-only
+```
 
-此处 `SCENE.md` 是需求说明，**目前不会自动加载进 Planner/Detector**；ToUser 需将确认的持久事实和流程写入 `memories/`、`skills/`。独立 `--assist` 和网页项目协助也不会把纯 `session_guidance` 自动保存为新场景的长期知识，需要实际编辑这些文件。网页向导已提供创建入口，但业务接入仍需实现与验证。
+`--observe-only` 实际采集一轮图像并保存到 `logs/<run>/frames/`，不调用模型或动作。核对画面后再启动真实模型。示例将图片声明为观察中的 `artifacts`，模型才能通过 `inspect_artifact` 按需看图。深度或专用 SDK 相机通过自定义工厂接入；已有业务适配器使用 `CameraSet` 合并图像，不能直接换成只读示例而丢失原动作。
 
-## 不同场景如何隔离
+### 加入机械臂
 
-目前实现的是**项目目录与运行状态隔离**，不是完整的多租户系统或容器隔离：
-
-| 内容 | 当前边界 |
-|---|---|
-| 记忆、提示词、技能、参考资料 | 从当前 `--root` 读取；不同场景必须使用不同根目录 |
-| 配置、日志、任务状态、ToUser 审计 | 保存于当前项目内；只换 `--config` 或 `--task` 仍会共享该根目录的记忆 |
-| 任务恢复 | 核对任务、根目录和适配器配置，不把其他场景的检查点作为当前任务恢复 |
-| ToUser 修改 | 先编辑当前项目的隔离副本，验证后应用回该项目；复制源码的场景具有各自的核心代码副本 |
-| 进程和 Python 依赖 | 默认未隔离；需分别启动进程，依赖冲突时使用独立虚拟环境 |
-| 外部资源、账号与设备 | 未自动隔离；适配器、服务端账号和资源锁需要按业务配置 |
-| Codex 连接设置 | 默认可继承同一用户配置，凭据与额度不会因换目录自动分离 |
-
-运行目录锁只能防止两个控制器同时操作同一个运行目录。不同场景指向同一个外部资源时，仍须在该资源一侧协调。普通适配器是可信 Python 代码，并没有被放入 ToUser 的编辑沙箱。
-
-## 版本管理与交互界面
-
-**建议使用 Git，但运行框架不依赖 Git。** 当前的备份与 `changes.diff` 只覆盖 ToUser 修改审计，不能替代整个项目的版本历史。初期可用一个 Core 仓库加每场景一个独立仓库，记录该场景采用的 Core 版本；稳定后再考虑发布版本化 Core 包。提示词、记忆和技能也应随代码一起纳入版本管理，日志与密钥不提交。当前没有自动 Git 提交、分支或版本回滚集成。
-
-ToUser 同时支持终端和**本地 Web 工作台**。网页已支持场景向导、长文本聊天、会话持久化、修改差异和验证结果。消息按纯文本安全显示，保留换行和代码内容。附件上传、Markdown 富文本以及运行中任务的暂停/恢复尚未接入；本版网页专注场景建立与项目协助。CLI 与网页协助共用项目锁，避免同一项目同时执行任务和修改源码。
-
-ToUser 也可以作为长期协作者使用：要求它分析问题、修复代码、把确认的事实写入 `memories/`，或依据 [Skill 模板](templates/SKILL.md) 创建可复用流程。它会先检查项目地图和相关文件，再修改隔离副本并验证；记忆和 Skill 只有真正写入并通过验证才算保存。模型仍可能误解需求，所以涉及设备、凭据、生产数据或不可逆动作时，应要求它先只读分析和生成方案，再人工审阅差异。
-
-## 记忆与按需证据
-
-- `memories/shared.md`：跨角色共享知识，初始为空白模板。
-- `memories/planner.md`、`memories/detector.md`：通用规划和检查经验。
-- `prompts/`：角色协议；每次模型轮开始重新读取。
-- `skills/<name>/SKILL.md`：工具按需加载；核心不强制执行固定技能链。
-- `task_state.json`：当前任务事实、最近历史、用户指导、最后动作和待后检状态。
-- `events.jsonl`：完整运行事件，可由 `search_history` 查询。
-- `references/`：可选证据目录，初始无场景素材。
-
-观察可声明 `artifacts`，两个角色通过 `inspect_artifact` 自主选择文本或图像。图片按需作为真正的图像输入发送；日志保存路径和哈希，不反复存储 base64。其他媒体或专业数据由适配器提供读取工具。
+每个机械臂需要自己的 SDK 工厂及场景动作实现。填写品牌/IP 不会自动产生控制能力。`pac_harness.devices.load_device()` 提供统一工厂入口，由业务适配器显式调用；工厂参数、单位转换、限位、执行结果与停止恢复必须实现并验收。参见 [机械臂接入步骤](DEVICES.md#3-机械臂)。先做只读状态和离线测试，再进行人工实机验收。
 
 ## ToUser
+
+ToUser 用于讨论问题、分析代码、记录长期知识和构建 Skill。当前版本围绕当前项目工作，记忆保存在 `memories/`，可复用流程保存在 `skills/`；可参考 [Skill 模板](templates/SKILL.md)。
+
+### 终端交互
 
 Windows 或 Linux 前台交互终端按 **Ctrl+G** 请求 ToUser；请求在当前模型调用/动作的边界处理，不强行中断已经发送的动作。其他终端或任务停止后，可显式运行：
 
@@ -169,9 +186,51 @@ ToUser 按用户意图区分四种处理方式：
 
 等待终端输入时，输入 `C`、`continue` 或在 Windows 控制台按 **Ctrl+G** 可直接退出，无需再按 Enter；自然语言要求“结束对话，继续任务”也会真正返回。Ctrl+G 返回键不取消正在进行的 Codex 推理或验证。Ctrl+C 结束运行时仍保存已收到的请求、对话和任务指导。每轮审计位于 `maintenance/to-user-*/`：`dialogue.json`、`report.json` 记录对话、已应用/未应用文件和退出原因；`turn-*/repair-*/` 保留各次自动修正的 diff 与验证结果，网页工作台也可查看。
 
-未绑定运行任务的 `--assist` 或网页对话只将临时指导保存到审计，不会自动变成长久知识。每次 Ctrl+G 是独立对话，尚未实现跨会话自动检索历次讨论。这里的通用改进不包含任何特定设备的动作或对齐规则；新建场景会复制更新后的 Core，已有场景的独立代码副本需另行同步，见 [场景隔离说明](SCENARIOS.md)。
+未绑定运行任务的 `--assist` 或网页对话只将临时指导保存到审计，不会自动变成长久知识。每次 Ctrl+G 是独立对话，尚未实现跨会话自动检索历次讨论。这里的通用改进不包含任何特定设备的动作或对齐规则。
 
 默认可编辑 `pac_harness/`、`examples/`、`adapters/`、`tests/`、`memories/`、`prompts/`、`skills/` 及顶层文本源码。可通过 `editable_roots` 加入业务源码目录。`config.json` 仅提供脱敏只读副本，`config.*.json` 不复制；原始证据、日志和凭据不作为可编辑文件。ToUser 不启动业务服务或执行实际业务操作。
+
+### Web 交互界面
+
+```bash
+python -m pac_harness --web
+```
+
+打开终端输出的完整本机链接（包含访问令牌），直接与当前项目的 ToUser 对话。网页支持多行输入、草稿、连续对话、历史记录、修改差异和验证结果；端口冲突时使用 `--port 8766`。无需额外 Web 依赖，真实对话仍需本机 Codex CLI。详见 [ToUser 网页工作台](WORKBENCH.md)。
+
+网页协助不绑定正在运行的业务任务；CLI 与网页协助共用项目锁。结束会话后，在终端启动或恢复任务。附件上传、Markdown 富文本及网页内任务暂停/恢复暂未接入。
+
+不使用网页时，也可以直接发送需求：
+
+```bash
+python -m pac_harness --assist --message "请核对当前项目的设备信息，澄清缺项，并把确认知识写入 memories，将可复用流程写入 skills。"
+```
+
+`--message` 自动发送首条消息，`--task` 仅提供背景。临时讨论不会自动成为长期知识，需要实际修改文件并通过验证。
+
+## 机械臂通用后端
+
+基础运动接口已独立为 `pac_harness.robot_backends`，提供 `RokaeBackend`、`PiperBackend`、`FrankaFR3Backend` 和不接触硬件的 `SimRobotBackend`。Piper 使用场景侧注入 AgileX `piper_sdk` driver；FR3 使用 `libfranka`/`pylibfranka` driver。Core 不强制安装任何厂商 SDK，也不会自动连接或发送运动指令。接口、限位和实机接入步骤见 [ROBOT_BACKENDS.md](ROBOT_BACKENDS.md)。
+
+以上厂商类目前是统一接口外壳，不是已完成的实机驱动映射；不能用模拟测试通过作为接入完成的依据。
+
+代码不会把任务指令变成任意 shell 命令。动作只能来自适配器公布的目录；模型提出不存在的动作或无效参数时返回规划反馈。
+
+## 版本管理
+
+建议用 Git 管理当前项目的代码、提示词、记忆和技能；日志与密钥不提交。ToUser 的备份与 `changes.diff` 用于修改审计，不能替代整个项目的版本历史。当前没有自动 Git 提交、分支或版本回滚集成。
+
+## 记忆与按需证据
+
+- `memories/shared.md`：跨角色共享知识，初始为空白模板。
+- `memories/planner.md`、`memories/detector.md`：通用规划和检查经验。
+- `prompts/`：角色协议；每次模型轮开始重新读取。
+- `skills/<name>/SKILL.md`：工具按需加载；核心不强制执行固定技能链。
+- `task_state.json`：当前任务事实、最近历史、用户指导、最后动作和待后检状态。
+- `events.jsonl`：完整运行事件，可由 `search_history` 查询。
+- `references/`：可选证据目录，初始无场景素材。
+
+观察可声明 `artifacts`，两个角色通过 `inspect_artifact` 自主选择文本或图像。图片按需作为真正的图像输入发送；日志保存路径和哈希，不反复存储 base64。其他媒体或专业数据由适配器提供读取工具。
 
 ## 恢复与能力边界
 

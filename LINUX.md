@@ -1,6 +1,6 @@
 # Linux 使用与验证
 
-要求 Python 3.11+。核心、Web 场景向导、记忆/Skill、任务恢复和文件锁共用跨平台代码。硬件 SDK 映射仍需按各厂商与设备版本验收。
+环境安装步骤见 [README 环境准备](README.md#环境准备先完成这一步)。Linux 与 Windows 共用同一套源码，无需独立版本。要求 Python 3.11+。核心、ToUser Web 工作台、记忆/Skill、任务恢复和文件锁共用跨平台代码。硬件 SDK 映射仍需按各厂商与设备版本验收。
 
 ```bash
 cd /path/to/PAC-Harness

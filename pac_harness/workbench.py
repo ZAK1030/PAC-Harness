@@ -1,4 +1,4 @@
-"""Loopback-only scene management and asynchronous ToUser transport (stdlib)."""
+"""Loopback-only single-project ToUser transport (stdlib)."""
 from __future__ import annotations
 
 from copy import deepcopy
@@ -6,13 +6,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import json
 import queue
-import re
 import secrets
-import shutil
 import threading
 import uuid
 
-from .storage import RunLock, atomic_write, confined, loads, write_json
+from .storage import RunLock, confined, loads, write_json
 from .redaction import redact
 from .to_user import ToUser
 
@@ -24,84 +22,19 @@ class Workbench:
         self.sessions = {}
         self.lock = threading.RLock()
 
-    def scene(self, name):
-        if name == "core":
-            return self.root
-        if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9-]{0,47}", name):
-            raise ValueError("场景标识必须是小写字母、数字和连字符，最长 48 字符")
-        path = confined(self.root, "scenes/" + name)
-        if not (path / "SCENE.md").is_file():
-            raise ValueError("场景不存在")
-        return path
-
-    def scenes(self):
-        result = [{"id": "core", "name": "Core 当前项目", "path": str(self.root)}]
-        parent = confined(self.root, "scenes")
-        if parent.exists():
-            for path in sorted(parent.iterdir()):
-                if re.fullmatch(r"[a-z][a-z0-9-]{0,47}", path.name):
-                    root = self.scene(path.name)
-                    result.append({"id": path.name, "name": path.name, "path": str(root)})
-        return result
-
-    def create(self, name, description):
-        if not isinstance(name, str) or name == "core" or not re.fullmatch(r"[a-z][a-z0-9-]{0,47}", name):
-            raise ValueError("请使用小写英文场景标识，core 为保留名称")
-        if not isinstance(description, str) or not description.strip() or len(description) > 30000:
-            raise ValueError("请填写场景描述（最多 30000 字符）")
-        with self.lock:
-            target = confined(self.root, "scenes/" + name)
-            if target.exists():
-                raise ValueError("场景已存在，请使用其他标识")
-            # Build outside the visible namespace; never clone another scene's data.
-            temporary = confined(self.root, "scenes/.creating-" + uuid.uuid4().hex)
-            temporary.mkdir(parents=True)
-            try:
-                for entry in ("pac_harness", "examples", "tests", "prompts", "templates"):
-                    source = confined(self.root, entry)
-                    for path in source.rglob("*"):
-                        relative = path.relative_to(source)
-                        if "__pycache__" in relative.parts or path.suffix == ".pyc":
-                            continue
-                        checked = confined(self.root, entry + "/" + relative.as_posix())
-                        if checked.is_file():
-                            atomic_write(temporary / entry / relative, checked.read_bytes())
-                for entry in ("README.md", "SCENARIOS.md", "WORKBENCH.md", "ADAPTERS.md", "pyproject.toml", ".gitignore"):
-                    source = confined(self.root, entry)
-                    if source.exists():
-                        atomic_write(temporary / entry, source.read_bytes())
-                for role in ("shared", "planner", "detector"):
-                    atomic_write(temporary / f"memories/{role}.md", f"# {role}\n\n本场景知识待确认；需求见 SCENE.md。\n".encode())
-                for folder in ("skills", "references", "adapters"):
-                    (temporary / folder).mkdir()
-                atomic_write(temporary / "adapters/__init__.py", b"")
-                config = {
-                    "adapter": {"factory": "adapters.pending:create", "settings": {}},
-                    "models": {role: {"base_url": "https://api.openai.com/v1", "model": "SET_YOUR_MODEL", "api_key_env": "OPENAI_API_KEY"} for role in ("planner", "detector")},
-                    "run": {"max_turns": 40, "max_failures": 3}, "to_user": {"enabled": True}}
-                write_json(temporary / "config.json", config)
-                atomic_write(temporary / "SCENE.md", ("# " + name + "\n\n" + description.strip() + "\n").encode())
-                temporary.rename(target)
-            except BaseException:
-                # Only remove our freshly allocated, confined staging directory.
-                if temporary.exists():
-                    shutil.rmtree(temporary)
-                raise
-        return {"id": name, "path": str(target)}
-
     def _save(self, session):
         write_json(session["path"], session["view"])
 
-    def start(self, scene, message):
-        root = self.scene(scene)
+    def start(self, message):
+        root = self.root
         if not isinstance(message, str) or not message.strip() or len(message) > 30000:
             raise ValueError("消息不能为空，最多 30000 字符")
         with self.lock:
-            if any(s["view"]["scene"] == scene and s["view"]["status"] in {"busy", "waiting", "closing"} for s in self.sessions.values()):
-                raise ValueError("此场景已有协助会话，请继续或结束该会话")
+            if any(s["view"]["status"] in {"busy", "waiting", "closing"} for s in self.sessions.values()):
+                raise ValueError("当前项目已有协助会话，请继续或结束该会话")
             sid = uuid.uuid4().hex
             session = {"path": confined(root, f"maintenance/web/{sid}.json"), "queue": queue.Queue(),
-                       "view": {"id": sid, "scene": scene, "status": "busy", "messages": [], "result": None}}
+                       "view": {"id": sid, "status": "busy", "messages": [], "result": None}}
             self.sessions[sid] = session
             self._enqueue(session, message)
             threading.Thread(target=self._run, args=(session, root), daemon=True).start()
@@ -147,7 +80,7 @@ class Workbench:
         try:
             with RunLock(confined(root, "maintenance/web-active")):
                 config = loads(confined(root, "config.json").read_text(encoding="utf-8"))
-                context = {"task": "场景建立与项目协助。阅读 SCENE.md（如存在），澄清需求，将确认知识写入 memories/skills，实现适配器与离线测试，说明配置步骤。此会话未绑定业务任务。"}
+                context = {"task": "当前项目协助。澄清需求，将确认知识写入 memories/skills，实现适配器与离线测试，说明配置步骤。此会话未绑定业务任务。"}
                 assistant = self.assistant_factory(root, config.get("to_user"), input_fn=read, output_fn=output)
                 result = assistant.run(context)
                 with self.lock:
@@ -161,8 +94,8 @@ class Workbench:
             with self.lock:
                 self._save(session)
 
-    def history(self, scene):
-        root = self.scene(scene)
+    def history(self):
+        root = self.root
         with self.lock:
             result = []
             parent = confined(root, "maintenance/web")
@@ -175,13 +108,13 @@ class Workbench:
                     result.append(value)
             return result
 
-    def audit(self, scene):
-        root = self.scene(scene)
+    def audit(self):
+        root = self.root
         parent = confined(root, "maintenance")
         result = []
         if parent.exists():
             # Only visit declared audit levels, never the staged workspace or
-            # another scene. Repairs have their own diffs and test results.
+            # other directories. Repairs have their own diffs and test results.
             names = {"changes.diff", "validation.json", "offline-tests.txt"}
             for session in sorted(parent.glob("to-user-*"), reverse=True):
                 session = confined(root, session.relative_to(root).as_posix())
@@ -241,12 +174,10 @@ def make_server(workbench, port=8765):
                 if not 0 <= length <= 150000:
                     raise ValueError("请求过大")
                 data = loads(self.rfile.read(length).decode()) if length else {}
-                if self.command == "GET" and self.path == "/api/scenes":
-                    value = workbench.scenes()
-                elif self.command == "POST" and self.path == "/api/create":
-                    value = workbench.create(data["name"], data["description"])
+                if self.command == "GET" and self.path == "/api/project":
+                    value = {"path": str(workbench.root)}
                 elif self.command == "POST" and self.path == "/api/start":
-                    value = workbench.start(data["scene"], data["message"])
+                    value = workbench.start(data["message"])
                 elif self.command == "POST" and self.path == "/api/send":
                     workbench.send(data["id"], data["message"])
                     value = {"ok": True}
@@ -254,7 +185,7 @@ def make_server(workbench, port=8765):
                     workbench.close(data["id"])
                     value = {"ok": True}
                 elif self.command == "POST" and self.path == "/api/state":
-                    value = {"history": workbench.history(data["scene"]), "audit": workbench.audit(data["scene"])}
+                    value = {"history": workbench.history(), "audit": workbench.audit()}
                 else:
                     self.reply({"error": "Not found"}, 404)
                     return

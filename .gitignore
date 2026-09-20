@@ -6,6 +6,7 @@ build/
 logs/
 maintenance/
 .env
+.harness_api_key
 .env.*
 !.env.example
 .venv/

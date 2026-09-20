@@ -26,10 +26,14 @@ def _main(argv=None):
     parser.add_argument("--demo", action="store_true", help="Use deterministic agents and the local list example; no API calls")
     parser.add_argument("--preview", action="store_true", help="Plan without dispatching a new action")
     parser.add_argument("--assist", action="store_true", help="Explicitly open ToUser for this project or run")
-    parser.add_argument("--web", action="store_true", help="Open the local scene wizard and ToUser workbench")
+    parser.add_argument("--web", action="store_true", help="Open the ToUser web interface")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--message", help="First ToUser message, sent automatically with --assist")
+    parser.add_argument("--observe-only", action="store_true", help="One observation without models or actions")
     options = parser.parse_args(argv)
     root = Path(options.root).resolve()
+    if options.message and not options.assist:
+        parser.error("--message requires --assist")
     if options.web:
         from .workbench import serve
         serve(root, port=options.port)
@@ -47,12 +51,20 @@ def _main(argv=None):
             if checkpoint.exists():
                 saved = loads(checkpoint.read_text(encoding="utf-8"))
                 state = TaskState(checkpoint, saved["task"], identity, resume=True)
-            result = ToUser(root, config.get("to_user")).run(
+            initial = [options.message] if options.message else []
+            def read_message(prompt):
+                from .dialogue_input import read_dialogue_input
+                return initial.pop(0) if initial else read_dialogue_input(prompt)
+            result = ToUser(root, config.get("to_user"), **({"input_fn": read_message} if initial else {})).run(
                 state.context() if state else {"task": options.task or "Project assistance"},
                 on_guidance=state.guidance if state else None)
         print(dumps(result))
         return 0
     task = options.task
+    if options.observe_only:
+        if options.resume or options.demo or options.preview:
+            parser.error("--observe-only cannot resume or run demo/preview")
+        task = task or "Read-only device observation"
     if options.resume and not task:
         task = loads((directory / "task_state.json").read_text(encoding="utf-8"))["task"]
     if not task:
@@ -68,6 +80,12 @@ def _main(argv=None):
         sys.path.insert(0, str(root))
     factory = getattr(importlib.import_module(module_name), factory_name)
     environment = factory(root=root, run_directory=directory, config=config["adapter"].get("settings", {}))
+    if options.observe_only:
+        try:
+            print(dumps(environment.observe()))
+        finally:
+            environment.close()
+        return 0
     if options.demo:
         if config["adapter"]["factory"] != "examples.list_sorting:create":
             parser.error("--demo supports only the bundled list example; configure models for other adapters")
