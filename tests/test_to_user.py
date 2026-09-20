@@ -90,7 +90,7 @@ class ToUserTests(unittest.TestCase):
             (stage / "memories/shared.md").write_text("updated")
             (stage / "memories/zzz.md").write_text("new")
         def faulty_write(path, raw):
-            if Path(path) == self.root / "memories/zzz.md":
+            if Path(path).resolve() == (self.root / "memories/zzz.md").resolve():
                 raise OSError("write failed")
             return atomic_write(path, raw)
         with patch("pac_harness.to_user.atomic_write", side_effect=faulty_write):
