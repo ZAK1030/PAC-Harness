@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "PAC-Harness"
+version = "0.1.0"
+description = "Scenario-independent Planner, Detector and ToUser runtime"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+PAC-Harness = "pac_harness.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["pac_harness*", "examples*"]

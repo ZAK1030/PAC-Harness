@@ -1,0 +1,24 @@
+{
+  "adapter": {
+    "factory": "examples.list_sorting:create",
+    "settings": {"items": [4, 1, 3, 2]}
+  },
+  "models": {
+    "planner": {
+      "base_url": "https://api.openai.com/v1",
+      "model": "SET_YOUR_MODEL",
+      "api_key_env": "OPENAI_API_KEY",
+      "timeout_s": 120,
+      "max_tool_rounds": 6
+    },
+    "detector": {
+      "base_url": "https://api.openai.com/v1",
+      "model": "SET_YOUR_MODEL",
+      "api_key_env": "OPENAI_API_KEY",
+      "timeout_s": 120,
+      "max_tool_rounds": 4
+    }
+  },
+  "run": {"max_turns": 40, "max_failures": 3},
+  "to_user": {"enabled": true, "timeout_s": 900, "test_timeout_s": 180, "max_repair_attempts": 2}
+}
