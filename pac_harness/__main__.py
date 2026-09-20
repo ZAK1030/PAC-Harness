@@ -103,6 +103,10 @@ def _main(argv=None):
 
 
 def main(argv=None):
+    # Redirected output on non-Chinese Windows hosts otherwise defaults to cp1252.
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and not stream.isatty() and hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     # Serialize CLI activity and web assistance for the entire project, not just a run.
     entry = argparse.ArgumentParser(add_help=False)
     entry.add_argument("--root", default=".")
