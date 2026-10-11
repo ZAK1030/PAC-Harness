@@ -11,6 +11,8 @@ dependencies = []
 
 [project.optional-dependencies]
 robot-vision = ["numpy>=1.24", "Pillow>=10", "msgpack>=1.0"]
+piper = ["piper-sdk==0.6.2; sys_platform == 'linux'"]
+franka = ["franky-control>=2.0,<3; sys_platform == 'linux'"]
 
 [project.scripts]
 PAC-Harness = "pac_harness.__main__:main"

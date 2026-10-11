@@ -11,7 +11,7 @@ from .coordinates import convert_pose, require_workspace, resolve_pose_reference
 from .devices import load_device
 from .grounding import Grounder, GroundingError
 from .rgbd import Observation
-from .robot_backends import _vector
+from .robot_backends import _vector, receipt_evidence
 from .storage import confined, loads, write_json
 from .tools import Tool, parameters
 
@@ -204,6 +204,7 @@ class CartesianEnvironment:
         try:
             checked = getattr(self.backend, "move_cartesian_checked", None)
             receipt = checked(candidate) if callable(checked) else self.backend.move_pose(candidate["target_pose"])
+            result["backend_receipt"] = receipt_evidence(receipt)
             measured = self.backend.state()
             actual = _vector(measured.pose, 6, "actual pose")
             result["actual_pose"] = actual

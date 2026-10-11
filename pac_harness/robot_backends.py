@@ -7,8 +7,24 @@ explicit at the scenario boundary.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
 import math
 from typing import Any, Protocol
+
+
+def receipt_evidence(receipt):
+    """Keep protocol evidence, excluding arbitrary SDK objects/opaque results."""
+    if not isinstance(receipt, dict):
+        return {"available": False}
+    result = {}
+    for key in ("ok", "backend", "kind", "execution_outcome", "command_id", "completion_evidence",
+                "target", "actual_pose", "actual_joint_positions_rad"):
+        if key in receipt:
+            try:
+                result[key] = json.loads(json.dumps(receipt[key], allow_nan=False))
+            except (TypeError, ValueError):
+                pass
+    return result
 
 
 def _vector(value, size, name):

@@ -22,9 +22,11 @@ backend.close()
 | `RokaeBackend` | ROKAE SDK，由场景注入 driver | 6 | 统一基础接口 |
 | `PiperBackend` | AgileX `piper_sdk`，通常为 CAN | 6 | 统一基础接口 |
 | `FrankaFR3Backend` | `libfranka` / `pylibfranka`，FCI | 7 | 统一基础接口 |
+| `PiperSDKBackend` | piper-sdk 0.6.2 V2 / Linux SocketCAN | 6 | 实际 MOVE L / MOVE J、单位转换、反馈完成核验 |
+| `FrankaFR3SDKBackend` | franky-control 2.x / libfranka / Linux FCI | 7 | 实际绝对笛卡尔/关节 motion、有界等待与实测核验 |
 | `SimRobotBackend` | 内置模拟器 | 6 或自定义 | 离线测试 |
 
-SDK 不作为 Core 的强制依赖。应用层负责创建 vendor driver，再传给对应后端；这样没有硬件或 SDK 时仍可运行全部离线测试。
+SDK 不作为 Core 的强制依赖。前三个包装器由应用注入自定义 driver；新增 SDK 后端通过独立设备工厂创建。实际配置和厂商接口边界见 [PIPER_FR3.md](PIPER_FR3.md)，没有硬件或 SDK 时仍可运行离线测试。
 
 ## 安全边界
 
@@ -103,11 +105,11 @@ python -m pac_harness --config config.local.json --task "仅将 J6 相对增加 
 
 发送前核对当前关节，拒绝与计算目标时的起始值不一致的请求。执行后检查接收器实例、请求编号、发送标识、计数增量、完成回执和实测角度。误差使用原始关节角，不将相差 360 度视为已经到位。速度和运动超时由接收器配置控制。
 
-Piper/FR3 仍需实际厂商驱动映射；通用 `DriverBackend` 只有在驱动明确返回 `ok: true`、`execution_outcome: "completed"` 且实测到位时，才可供这个关节适配器认定完成。旧的普通 SDK 返回值不能充当完成回执。
+Piper/FR3 的实际 SDK 映射已提供独立工厂：`pac_harness.piper_backend:create` / `pac_harness.franka_backend:create`，六轴/七轴关节都等待真实反馈并核验到位。原有通用 `DriverBackend` 仍要求自定义驱动明确返回 `ok: true`、`execution_outcome: "completed"`；普通 SDK 返回值不能充当完成回执。
 
 该适配器只提供关节运动和机器人状态。已有相机/XY/夹爪业务适配器应组合其动作和观察，不要直接替换后丢掉原功能。真实执行链已通过假的接收器与模拟器离线验证，尚未连接实机验收。
 
 
 ## 标定定位与笛卡尔移动
 
-新增通用 RGB-D 标定计算和笛卡尔动作适配器，提供 `move_calibrated`、`move_relative`。ROKAE HTTP 后端通过已有接收器 `/action` 发送单个受限平移，并核对回执及实际位姿。相机配准、TCP 参考点、配置和离线示例见 [CALIBRATED_MOTION.md](CALIBRATED_MOTION.md)。厂商 `move_pose()` 的普通返回值不能替代完成回执；自定义驱动需报告真实完成状态。
+通用 RGB-D 标定计算和笛卡尔动作适配器提供 `move_calibrated`、`move_relative`。ROKAE HTTP 后端通过 `/action` 发送受限平移；Piper SDK 使用 MOVE L；FR3 SDK 使用基座绝对 CartesianMotion。三者都检查完成依据与实测位姿，结果未知时不重发。相机配准和通用配置见 [CALIBRATED_MOTION.md](CALIBRATED_MOTION.md)，Piper/FR3 实机配置见 [PIPER_FR3.md](PIPER_FR3.md)。各厂商完成协议不同，均尚未实机验收。

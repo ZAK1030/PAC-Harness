@@ -24,4 +24,6 @@ Linux 前台交互 TTY（包括 SSH 终端）支持 Ctrl+G 请求协助，在动
 
 ## 验收范围
 
+Piper 的 SocketCAN / piper-sdk V2 和 FR3 的 franky/libfranka 已有内置实际驱动入口；安装、FCI 实时环境、连接参数与标定移动配置见 [PIPER_FR3.md](PIPER_FR3.md)。Windows/Linux 均运行 SDK 替身测试，内置实机驱动部署在 Linux，不自动解除设备保护或恢复故障。
+
 GitHub Actions 配置覆盖 Ubuntu/Windows 与 Python 3.11/3.13；POSIX PTY 测试检查热键进入、退出、中文输入、暂停与异常恢复。Windows 会跳过该 PTY 测试。真实 Codex 模型请求与实机运动必须单独验收，不能用模拟 SDK 或跨平台单元测试代替。

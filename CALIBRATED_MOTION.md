@@ -116,6 +116,8 @@ python -m pac_harness --config config.local.json --observe-only
 
 ## 标定文件格式
 
+使用 Piper / FR3 时，将 `robot` 改为对应 SDK 工厂，按 [PIPER_FR3.md](PIPER_FR3.md) 配置连接、参考点、限位和命令权限。相机采集工厂继续使用同一协议，但其机器人状态和外参必须对应新机械臂；原 ROKAE 观察服务不能直接冒用。
+
 `factory.json` 的 `cameras.<名称>` 包含：
 
 - `rgb_intrinsics` 和 `depth_intrinsics`：各自 `width`、`height`、`K_row_major_3x3`。
@@ -136,7 +138,7 @@ python -m pac_harness --config config.local.json --observe-only
 
 ROKAE 后端沿用现有接收器的 `/action` MessagePack 协议，8×6 数据块只有首行包含平移，其余为零；不会发送多步轨迹。发送前检查接收器状态、模式/步长限制、坐标参考点和当前位姿；完成后核对接收器实例、请求编号、计数、完成回执、目标及实测位姿。速度和超时服从接收器配置。
 
-服务由现场操作员启动、上电并 ARM；客户端不启动设备、不自动使能或解除停止。当前支持本机启动器监管且无需心跳的模式，不接管其他控制器的心跳。其他机器人后端可实现 `move_cartesian_checked(candidate)`，或提供返回真实完成回执的 `move_pose()`；普通 SDK 返回不代表已到位。
+ROKAE 服务由现场操作员启动、上电并 ARM；客户端不启动设备、不自动使能或解除停止。当前支持本机启动器监管且无需心跳的模式，不接管其他控制器的心跳。Piper 和 FR3 已实现 `move_cartesian_checked(candidate)`，通过各自 SDK 等待与反馈完成；普通 SDK 返回不代表已到位。两款后端的配置、停止、连接参数写入和 Linux 要求见 [PIPER_FR3.md](PIPER_FR3.md)。
 
 每个动作在运行目录写入 `cartesian-receipts/`，包含原图标识、标定文件哈希、深度采样质量、几何目标、实际步长、实测结果与工作空间检查。原地更新的标定文件重新读取；失败或未知结果不会自动重发，恢复保持未知。进程重启丢失内存图像快照时必须重新观察和规划，不能沿用无法校验的像素目标。
 

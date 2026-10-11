@@ -5,7 +5,7 @@ from pathlib import Path
 import time
 
 from .devices import load_device
-from .robot_backends import _vector, SimRobotBackend
+from .robot_backends import _vector, SimRobotBackend, receipt_evidence
 from .storage import confined, loads, write_json
 from .tools import parameters
 
@@ -85,6 +85,7 @@ class JointEnvironment:
         try:
             checked = getattr(self.backend, "move_joints_checked", None)
             receipt = checked(start, target) if callable(checked) else self.backend.move_joints(target)
+            result["backend_receipt"] = receipt_evidence(receipt)
             measured = self.backend.state()
             actual = _vector(measured.joints, self.backend.dof, "actual joints")
             result["actual_joint_positions_rad"] = actual

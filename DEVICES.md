@@ -74,7 +74,7 @@ def create(*, root, config):
 
 ## 3. 机械臂
 
-`RokaeBackend`、`PiperBackend`、`FrankaFR3Backend` 当前是通用接口外壳，**尚不是已验证的厂商 SDK 驱动**。不能只填写品牌或 IP 就控制设备。需要在 `adapters/my_robot.py` 实现可信设备工厂，做 SDK 单位、坐标系、错误码、动作完成回执和超时映射，再由业务适配器调用。
+`RokaeBackend`、`PiperBackend`、`FrankaFR3Backend` 保留为自定义驱动包装器。内置真实协议入口已有 ROKAE HTTP、`pac_harness.piper_backend:create` 和 `pac_harness.franka_backend:create`，后两者完成 SDK 指令、单位转换、有界等待和实测核验，配置见 [PIPER_FR3.md](PIPER_FR3.md)。实际驱动尚未实机验收。其他 SDK/版本可在 `adapters/my_robot.py` 实现可信设备工厂，明确单位、坐标系、错误和完成状态。
 
 在业务 `adapter.settings` 内增加配置（只读相机示例不会使用该项）：
 

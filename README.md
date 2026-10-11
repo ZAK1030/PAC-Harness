@@ -212,11 +212,11 @@ python -m pac_harness --assist --message "请核对当前项目的设备信息�
 
 ## 机械臂通用后端
 
-基础运动接口已独立为 `pac_harness.robot_backends`，提供 `RokaeBackend`、`PiperBackend`、`FrankaFR3Backend` 和不接触硬件的 `SimRobotBackend`。Piper 使用场景侧注入 AgileX `piper_sdk` driver；FR3 使用 `libfranka`/`pylibfranka` driver。Core 不强制安装任何厂商 SDK，也不会自动连接或发送运动指令。接口、限位和实机接入步骤见 [ROBOT_BACKENDS.md](ROBOT_BACKENDS.md)。
+基础运动接口已独立为 `pac_harness.robot_backends`，保留 `RokaeBackend`、`PiperBackend`、`FrankaFR3Backend` 自定义驱动包装器和 `SimRobotBackend`。新增 `PiperSDKBackend`（piper-sdk V2 / CAN）与 `FrankaFR3SDKBackend`（franky 2.x / libfranka），实际映射运动指令、单位、坐标参考点和完成反馈。Core 不强制安装任何厂商 SDK。接口说明见 [ROBOT_BACKENDS.md](ROBOT_BACKENDS.md)，Linux 实机安装和配置见 [Piper / FR3 接入](PIPER_FR3.md)。
 
 新增 `joint_move` 动作适配器，支持按当前实测值计算指定关节的相对增量或绝对角度；只指定 J6 时保留当前其他关节值。终端显示起始、目标、实测角度。现有 ROKAE HTTP 接收器已接入关节执行与回执核验链；配置见 [joint_move 使用说明](ROBOT_BACKENDS.md#joint_move相对增量与部分绝对目标)。
 
-SDK 厂商类仍是统一接口外壳，Piper/FR3 的实机驱动映射仍需接入；ROKAE HTTP 链也尚未实机验收。不能用模拟测试通过作为实机验收完成的依据。
+ROKAE HTTP、Piper SDK 和 FR3 SDK 均接入完成核验及结果未知时的防重发流程，也可执行下面的标定接近与相对纠偏。三个后端尚未实机验收；SDK 替身测试通过不代表实机运动已验证。Piper CAN 完成依据与 ROKAE HTTP 请求回执不同，具体边界见设备文档。
 
 代码不会把任务指令变成任意 shell 命令。动作只能来自适配器公布的目录；模型提出不存在的动作或无效参数时返回规划反馈。
 
@@ -252,7 +252,7 @@ python -m pip install -e ".[robot-vision]"
 python -m examples.calibrated_motion
 ```
 
-以上示例使用合成 RGB-D 和模拟机械臂，无需模型密钥。真实服务配置、文件格式和接入步骤见 [标定目标定位与相对纠偏](CALIBRATED_MOTION.md)。
+以上示例使用合成 RGB-D 和模拟机械臂，无需模型密钥。真实服务配置、文件格式和接入步骤见 [标定目标定位与相对纠偏](CALIBRATED_MOTION.md)；替换成 Piper / FR3 的配置见 [PIPER_FR3.md](PIPER_FR3.md)，相机观察必须同时使用该机械臂的真实位姿与标定。
 
 ## turn 与重试
 
