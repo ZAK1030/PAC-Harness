@@ -63,7 +63,8 @@ class Harness:
         for key, value in report["facts"].items():
             facts[key] = {"value": value, "source": "detector", "turn": self.state.data["turn"]}
         complete = self.state.data["action"]["name"] == "done" and report["task_complete"]
-        self.state.update(detector=report, facts=facts, phase="completed" if complete else "ready")
+        self.state.update(detector=report, facts=facts, phase="completed" if complete else "ready", turn_open=False)
+        self.journal.event("turn_completed", action=self.state.data["action"], detector=report)
         self.state.remember("step", action=self.state.data["action"], detector=report)
         self.output(f"Detector post: {report['status']} / {report['progress']} — {report['reason']}")
 
@@ -76,7 +77,7 @@ class Harness:
             self.state.update(phase="post_pending", execution=result["result"])
         elif result.get("status") == "not_executed":
             self.state.remember("not_executed", action=self.state.data["action"])
-            self.state.update(phase="ready")
+            self.state.update(phase="ready", turn_open=False)
         else:
             self.state.update(phase="execution_unknown")
 
@@ -87,6 +88,7 @@ class Harness:
         with RunLock(directory):
             self.journal = Journal(directory)
             self.state = TaskState(directory / "task_state.json", task, self.identity, resume=resume)
+            self.journal.turn = self.state.data["turn"]
             if self.hotkey is not None:
                 self.hotkey.start()
             try:
@@ -111,6 +113,9 @@ class Harness:
                             continue
                         if turns >= max_turns:
                             return {"status": "budget_exhausted", "turns": self.state.data["turn"]}
+                        if not self.state.data.get("turn_open", False):
+                            self.state.update(turn=self.state.data["turn"] + 1, turn_open=True)
+                        self.journal.turn = self.state.data["turn"]
                         observation = self._observe()
                         actions = self.environment.actions()
                         if len({item["name"] for item in actions}) != len(actions) or any(item["name"] == "done" for item in actions):
@@ -127,7 +132,7 @@ class Harness:
                         if preview:
                             return {"status": "preview", "action": action}
                         turns += 1
-                        self.state.update(turn=self.state.data["turn"] + 1, remaining_plan=plan["remaining_plan"],
+                        self.state.update(remaining_plan=plan["remaining_plan"],
                                           action=action, before=before, after=None, execution=None, detector=None,
                                           request_id=uuid.uuid4().hex,
                                           phase="post_pending" if action["name"] == "done" else "executing")

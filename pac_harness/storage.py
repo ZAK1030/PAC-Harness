@@ -96,9 +96,11 @@ class Journal:
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.path = self.directory / "events.jsonl"
+        self.turn = None
 
     def event(self, event, **fields):
-        value = {"time_ns": time.time_ns(), "event": event, **fields}
+        value = {"time_ns": time.time_ns(), "event": event,
+                 **({"turn": self.turn} if self.turn is not None else {}), **fields}
         with self.path.open("a", encoding="utf-8") as stream:
             stream.write(dumps(value) + "\n")
             stream.flush()

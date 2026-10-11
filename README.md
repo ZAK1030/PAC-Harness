@@ -68,6 +68,8 @@ python -m pac_harness --demo
 python -m unittest discover -s tests -v
 ```
 
+完整几何测试需安装下文的 `.[robot-vision]` 可选依赖；未安装时跳过对应测试，核心与列表演示仍可独立使用。
+
 演示使用确定性 Planner/Detector 测试替身，将 `[4,1,3,2]` 排成 `[1,2,3,4]`，执行一次替换，再独立核对 `done`。它验证整个调用链，不用于评估模型智能。演示数据写入本项目 `logs/<run>/`。
 
 恢复已有任务：
@@ -212,7 +214,9 @@ python -m pac_harness --assist --message "请核对当前项目的设备信息�
 
 基础运动接口已独立为 `pac_harness.robot_backends`，提供 `RokaeBackend`、`PiperBackend`、`FrankaFR3Backend` 和不接触硬件的 `SimRobotBackend`。Piper 使用场景侧注入 AgileX `piper_sdk` driver；FR3 使用 `libfranka`/`pylibfranka` driver。Core 不强制安装任何厂商 SDK，也不会自动连接或发送运动指令。接口、限位和实机接入步骤见 [ROBOT_BACKENDS.md](ROBOT_BACKENDS.md)。
 
-以上厂商类目前是统一接口外壳，不是已完成的实机驱动映射；不能用模拟测试通过作为接入完成的依据。
+新增 `joint_move` 动作适配器，支持按当前实测值计算指定关节的相对增量或绝对角度；只指定 J6 时保留当前其他关节值。终端显示起始、目标、实测角度。现有 ROKAE HTTP 接收器已接入关节执行与回执核验链；配置见 [joint_move 使用说明](ROBOT_BACKENDS.md#joint_move相对增量与部分绝对目标)。
+
+SDK 厂商类仍是统一接口外壳，Piper/FR3 的实机驱动映射仍需接入；ROKAE HTTP 链也尚未实机验收。不能用模拟测试通过作为实机验收完成的依据。
 
 代码不会把任务指令变成任意 shell 命令。动作只能来自适配器公布的目录；模型提出不存在的动作或无效参数时返回规划反馈。
 
@@ -231,6 +235,30 @@ python -m pac_harness --assist --message "请核对当前项目的设备信息�
 - `references/`：可选证据目录，初始无场景素材。
 
 观察可声明 `artifacts`，两个角色通过 `inspect_artifact` 自主选择文本或图像。图片按需作为真正的图像输入发送；日志保存路径和哈希，不反复存储 base64。其他媒体或专业数据由适配器提供读取工具。
+
+## 两种笛卡尔目标生成方式
+
+`pac_harness.cartesian_motion:create` 将两种方式接入同一 Planner → 单动作 → Detector 后检流程：
+
+- `move_calibrated`：选择原始 RGB 像素，通过配准深度、相机内参、固定/手眼外参及 TCP 转换计算目标，每次执行一个有步长限制的接近动作。
+- `move_relative`：根据当前视觉证据给出机器人基座坐标系下的小幅相对纠偏，随后重新观察。
+
+相机名称和标定文件按项目配置；不继承原现场数据。标定计算记录图像标识、深度质量、文件哈希和目标来源，拒绝模型直接提供米制坐标冒充标定结果。当前保持姿态不变，只生成平移；不是轨迹规划或碰撞证明。
+
+安装可选依赖并运行离线示例：
+
+```bash
+python -m pip install -e ".[robot-vision]"
+python -m examples.calibrated_motion
+```
+
+以上示例使用合成 RGB-D 和模拟机械臂，无需模型密钥。真实服务配置、文件格式和接入步骤见 [标定目标定位与相对纠偏](CALIBRATED_MOTION.md)。
+
+## turn 与重试
+
+一个 turn 包含 Planner 的工具读取、格式修复、未执行动作的重试、最终动作及 Detector 后检。只有后检完成后才开始下一轮；工具和重试不会单独增加 turn。新事件统一记录 turn，旧 `events.jsonl` 不改写。
+
+同一进程、同一运行的规划重试会保留已读取的工具结果和图片、剩余工具轮次，并加入新的状态与错误反馈。格式修复每次调用最多 2 次，整体重试仍受运行预算限制。新 turn 清空上一轮模型会话；历史图片不会被重新标成当前证据。模型会话暂存在内存，进程重启恢复 turn/动作检查点，但不会自动回放整段模型消息。
 
 ## 恢复与能力边界
 

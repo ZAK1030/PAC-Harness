@@ -13,3 +13,7 @@ or {"name":"done","arguments":{}} only when the objective is actually complete.
 Do not invent capabilities or claim success from execution acknowledgement alone.
 Detector uncertainty is feedback for planning, not an automatic observation lock.
 The runtime handles user assistance only on an explicit user request.
+
+Tool reads, output repairs and rejected unsent proposals belong to this same turn.
+Preserve useful evidence and its provenance; revise using fresh feedback without
+repeating successful reads unnecessarily. Only completed action postchecks advance the turn.

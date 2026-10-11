@@ -14,6 +14,8 @@ from typing import Any, Protocol
 def _vector(value, size, name):
     if not isinstance(value, (list, tuple)) or len(value) != size:
         raise ValueError(f"{name} must contain {size} numbers")
+    if any(type(x) not in (int, float) for x in value):
+        raise ValueError(f"{name} must contain numbers, not booleans or strings")
     result = [float(x) for x in value]
     if not all(math.isfinite(x) for x in result):
         raise ValueError(f"{name} must contain finite numbers")
@@ -70,6 +72,8 @@ class RobotBackend(Protocol):
 class DriverBackend:
     """Common validation and duck-typed dispatch for a vendor driver."""
     def __init__(self, driver, *, name, dof, limits, require_enable=True):
+        if len(limits.joint_min) != dof or len(limits.joint_max) != dof:
+            raise ValueError("Joint limits must match robot degrees of freedom")
         self.driver, self.name, self.dof, self.limits = driver, name, dof, limits
         self.require_enable = require_enable
         self._connected = False
@@ -111,13 +115,17 @@ class DriverBackend:
         self._ready(); values = self.limits.check_joints(joints)
         speed = self.limits.check_speed(speed, self.limits.max_joint_speed, "joint speed")
         result = self._call(("move_joints", "moveJoint", "set_joint_positions", "move_joint_positions"), values, speed=speed)
-        return {"ok": True, "backend": self.name, "kind": "joints", "joints": values, "result": result}
+        return {"ok": result.get("ok") is True if isinstance(result, dict) else True,
+                "execution_outcome": result.get("execution_outcome", "unknown") if isinstance(result, dict) else "unknown",
+                "backend": self.name, "kind": "joints", "joints": values, "result": result}
 
     def move_pose(self, pose, *, speed=None):
         self._ready(); values = _vector(pose, 6, "pose")
         speed = self.limits.check_speed(speed, self.limits.max_linear_speed, "linear speed")
         result = self._call(("move_pose", "moveL", "set_cartesian_pose", "move_cartesian"), values, speed=speed)
-        return {"ok": True, "backend": self.name, "kind": "pose", "pose": values, "result": result}
+        return {"ok": result.get("ok") is True if isinstance(result, dict) else True,
+                "execution_outcome": result.get("execution_outcome", "unknown") if isinstance(result, dict) else "unknown",
+                "backend": self.name, "kind": "pose", "pose": values, "result": result}
 
     def open_gripper(self, width=None):
         self._ready(); result = self._call(("open_gripper", "gripper_open", "open"), width) if width is not None else self._call(("open_gripper", "gripper_open", "open"))
@@ -161,7 +169,7 @@ class SimRobotBackend(DriverBackend):
     def enable(self): self._enabled = True
     def stop(self): self._enabled = False
     def state(self): return RobotState(self._connected, self._enabled, self._sim_state["joints"].copy(), self._sim_state["pose"].copy(), self._sim_state["gripper_width"])
-    def move_joints(self, joints, *, speed=None): self._sim_state["joints"] = self.limits.check_joints(joints); return {"ok": True, "backend": "sim", "kind": "joints", "joints": self._sim_state["joints"]}
-    def move_pose(self, pose, *, speed=None): self._sim_state["pose"] = _vector(pose, 6, "pose"); return {"ok": True, "backend": "sim", "kind": "pose", "pose": self._sim_state["pose"]}
+    def move_joints(self, joints, *, speed=None): self._sim_state["joints"] = self.limits.check_joints(joints); return {"ok": True, "backend": "sim", "kind": "joints", "joints": self._sim_state["joints"], "execution_outcome": "completed"}
+    def move_pose(self, pose, *, speed=None): self._sim_state["pose"] = _vector(pose, 6, "pose"); return {"ok": True, "backend": "sim", "kind": "pose", "pose": self._sim_state["pose"], "execution_outcome": "completed"}
     def open_gripper(self, width=None): self._sim_state["gripper_width"] = .08 if width is None else float(width); return {"ok": True, "backend": "sim", "width": self._sim_state["gripper_width"]}
     def close_gripper(self, width=None): self._sim_state["gripper_width"] = 0.0 if width is None else float(width); return {"ok": True, "backend": "sim", "width": self._sim_state["gripper_width"]}
