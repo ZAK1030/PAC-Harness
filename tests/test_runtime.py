@@ -88,6 +88,75 @@ class RuntimeTests(unittest.TestCase):
         return Harness(self.root, environment, planner or DemoPlanner(), detector or DemoDetector(),
                        identity="test", output=lambda text: None)
 
+    def test_episode_terminal_hook_runs_after_pending_post(self):
+        environment = FaultEnvironment(self.run)
+        environment.terminal_result = lambda: {"status": "episode_exhausted"} if environment.calls else None
+        detector = FailingDetector(1)
+        result = self.harness(environment, detector).run("sort", self.run)
+        self.assertEqual(result["status"], "episode_exhausted")
+        self.assertEqual(environment.calls, 1)
+        self.assertEqual(detector.calls, 2)
+        state = loads((self.run / "task_state.json").read_text())
+        self.assertEqual(state["phase"], "ready")
+        self.assertIsNotNone(state["detector"])
+
+    def test_terminal_success_stops_after_uncertain_post_without_done_loop(self):
+        environment = FaultEnvironment(self.run)
+        environment.terminal_result = lambda: {
+            "status": "completed", "reason": "task_success", "success": True,
+            "completion_source": "libero.check_success"} if environment.calls else None
+
+        class UncertainDetector:
+            calls = 0
+
+            def respond(self, *args):
+                self.calls += 1
+                return {"status": "uncertain", "reason": "Release remains unverified.",
+                        "evidence": ["Release is obscured."], "task_complete": False, "progress": "unknown",
+                        "facts": {"release_verified": None}}
+
+        detector = UncertainDetector()
+        result = self.harness(environment, detector).run("sort", self.run)
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['reason'], 'task_success')
+        self.assertEqual(result['turns'], 1)
+        self.assertEqual(environment.calls, 1)
+        self.assertEqual(detector.calls, 1)
+        state = loads((self.run / 'task_state.json').read_text())
+        self.assertEqual(state['phase'], 'completed')
+        self.assertFalse(state['turn_open'])
+        self.assertFalse(state['detector']['task_complete'])
+        self.assertIsNone(state['facts']['release_verified']['value'])
+        self.assertEqual(state['action']['name'], 'replace_items')
+        self.assertEqual(self.harness(FaultEnvironment(self.run)).run('sort', self.run, resume=True), result)
+
+    def test_resume_terminal_success_preserves_pending_detector_check(self):
+        environment = FaultEnvironment(self.run)
+        result = self.harness(environment, FailingDetector(10)).run('sort', self.run, max_failures=1)
+        self.assertEqual(result['phase'], 'post_pending')
+        resumed = FaultEnvironment(self.run)
+        resumed.terminal_result = lambda: {'status': 'completed', 'reason': 'task_success'}
+        detector = FailingDetector(0)
+        result = self.harness(resumed, detector).run('sort', self.run, resume=True)
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(detector.calls, 1)
+        self.assertEqual(resumed.calls, 0)
+
+    def test_result_frame_hook_after_execution_with_detector_retry(self):
+        environment = FaultEnvironment(self.run)
+        frames = []
+        def record_frame(**values):
+            self.assertEqual(environment.calls, 1)
+            self.assertTrue(values['execution']['ok'])
+            self.assertIsNotNone(values['observation'])
+            frames.append(values)
+            return {'path': 'logs/run/frames/turn-001.png', 'turn': values['turn']}
+        environment.record_action_frame = record_frame
+        result = self.harness(environment, FailingDetector(1)).run('sort', self.run, max_turns=1)
+        self.assertEqual(result['status'], 'budget_exhausted')
+        self.assertEqual([f['turn'] for f in frames], [1, 1])
+        self.assertEqual(frames[0]['request_id'], frames[1]['request_id'])
+
     def test_demo_completes_with_post_verified_done(self):
         environment = FaultEnvironment(self.run)
         result = self.harness(environment).run("sort", self.run)

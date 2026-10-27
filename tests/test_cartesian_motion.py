@@ -89,6 +89,39 @@ class CartesianTests(unittest.TestCase):
         candidate = self.env.candidate(calibrated(snapshot, approach_offset_m=[.2, 0, 0]), snapshot)
         np.testing.assert_allclose(candidate['target_pose'][:3], [.2, 0, .5])
 
+    def test_direct_calibrated_target_then_fine_correction(self):
+        self.env.config['calibrated_direct'] = True
+        snapshot = self.env.observe()
+        result = self.env.execute(calibrated(snapshot, approach_offset_m=[0, 0, .08]), 'direct')
+        # The full 28 cm waypoint is commanded despite the 5 cm coarse cap.
+        np.testing.assert_allclose(result['target_pose'][:3], [0, 0, .58])
+        self.assertEqual(result['motion_mode'], 'coarse_direct')
+        self.assertAlmostEqual(result['planned_distance_m'], .28)
+        self.assertTrue(result['ok'])
+        snapshot = self.env.observe()
+        result = self.env.execute({'name': 'move_relative', 'arguments': {
+            'observation_id': snapshot['observation_id'], 'target': 'synthetic_surface',
+            'delta_m': [0, 0, -.008]}}, 'fine')
+        np.testing.assert_allclose(result['actual_pose'][:3], [0, 0, .572])
+        snapshot = self.env.observe()
+        with self.assertRaisesRegex(ValueError, 'fine step'):
+            self.env.candidate({'name': 'move_relative', 'arguments': {
+                'observation_id': snapshot['observation_id'], 'target': 'synthetic_surface',
+                'delta_m': [0, 0, -.02]}}, snapshot)
+
+    def test_direct_validates_full_endpoint_and_allows_nearby_staging(self):
+        self.env.config['calibrated_direct'] = True
+        self.env.safety['xyz_max'] = [1, 1, .4]
+        snapshot = self.env.observe()
+        with self.assertRaisesRegex(ValueError, 'outside workspace'):
+            self.env.execute(calibrated(snapshot), 'outside')
+        self.assertEqual(self.env.backend.state().pose[2], .3)
+        self.env.safety['xyz_max'] = [1, 1, 1]
+        self.env.backend.move_pose([0, 0, .46, 0, 0, 0])
+        snapshot = self.env.observe()
+        candidate = self.env.candidate(calibrated(snapshot, approach_offset_m=[0, 0, .08]), snapshot)
+        self.assertAlmostEqual(candidate['target_pose'][2], .58)
+
     def test_calibration_reload_updates_provenance_and_refuses_unmarked(self):
         snapshot = self.env.observe()
         original = self.env.candidate(calibrated(snapshot), snapshot)

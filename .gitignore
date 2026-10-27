@@ -21,3 +21,11 @@ htmlcov/
 config.*.local.json
 config.local.json
 scenes/
+
+.deps/
+
+.venv
+.venv-libero-pro/
+
+# Local experiment evidence, downloads, videos and simulation arrays.
+/artifacts/

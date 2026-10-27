@@ -102,10 +102,12 @@ class Knowledge:
             raise ValueError("Skill does not exist")
         return {"name": name, "content": value}
 
-    def context(self, role):
+    def context(self, role, payload=None):
+        from .experience import Experience
         return {
             "shared": self.text("memories/shared.md"),
             "role_memory": self.text(f"memories/{role}.md"),
             "instructions": self.text(f"prompts/{role}.md"),
             "skills": self.skills(),
+            "experience": Experience(self.root).context(role, payload or {}),
         }

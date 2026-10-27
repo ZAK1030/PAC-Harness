@@ -1,0 +1,750 @@
+[
+  {
+    "id": "calibrated-offset-intent-check",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial",
+      "task_keywords": [
+        "place it on the plate"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When offsets are rejected, lifts stall, or staging changes. Keep the TCP goal and fixed coordinates; derive bounded offsets from fresh same-frame surface data. Verify goal versus actual motion, arrival, retention, and descent clearance. Recheck after pose, view, slip, surface, or goal changes."
+  },
+  {
+    "id": "bowl-plate-center-and-support",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial",
+      "task_keywords": [
+        "black bowl",
+        "plate"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When lowering near the plate. Use current geometry for centers and frames; descend boundedly; release only on verified exterior-bottom support. Verify centering, release, withdrawal and stable rest, not just success. Recheck after motion or view changes; report gaps without acting at termination."
+  },
+  {
+    "id": "single-json-planner-response",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial",
+      "task_keywords": []
+    },
+    "priority": "normal",
+    "rule": "When planner JSON fails parsing or execution acknowledgement is unclear. Emit one schema-valid JSON document; reconcile acknowledgements before replay. Verify execution and physical progress separately; closure alone is not capture. Recheck after parser, schema or acknowledgement errors."
+  },
+  {
+    "id": "episode-ended-action-guard",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial",
+      "task_keywords": []
+    },
+    "priority": "normal",
+    "rule": "When success stops motion or completion is unclear. Reconcile status; stop actuation and submit done once on confirmed termination; retry only explicit retryable errors. Verify stop reason, success and completion apart from arrival, support and release. Recheck after reset or conflicting status."
+  },
+  {
+    "id": "hollow-bowl-wall-pinch",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial",
+      "task_keywords": [
+        "black bowl"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When drawer-bowl contact is uncertain. Treat calibration as surface data; reassess the pinch. Verify inside/outside same-wall straddling and outer-finger wall/floor clearance; keep cropped contact unknown. Recheck alignment and depth before closure and after geometry or view changes."
+  },
+  {
+    "id": "bowl-retention-before-transfer",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial",
+      "task_keywords": [
+        "black bowl"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When closure or lifting leaves retention uncertain. Use a bounded lift; reopen and refresh geometry after misses; reassess visibility if inconclusive. Verify bowl co-motion, support separation and drawer-edge clearance. Recheck after occlusion or slip, before transfer."
+  },
+  {
+    "id": "bounded-motion-and-stall-reassessment",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial",
+      "task_keywords": [
+        "pick up the black bowl",
+        "place it on the plate"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When motion is rejected or repeatedly stops. Check bounds; refresh pose and clearance instead of replaying residuals. Verify arrival, stop reason and enough steps for grasp, retention testing and transfer. Recheck after rotation, reopening or geometry changes."
+  },
+  {
+    "id": "revalidate-state-after-inference-failure",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_task",
+      "task_keywords": []
+    },
+    "priority": "normal",
+    "rule": "When inference errors interrupt planning. Refresh observations and reconcile the last executed action. Verify unchanged steps, pose, gripper, scene, and camera before reusing targets. Recheck execution and relocalize if state is uncertain or changes."
+  },
+  {
+    "id": "verify-retention-after-transport",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_swap",
+      "task_keywords": [
+        "bowl",
+        "drawer"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When transporting a lifted bowl with the gripper commanded closed. Reassess retention. Verify contact and destination support visually; jaw width alone proves neither retention nor release. Recheck after transport, jaw-width changes, or lost visible contact."
+  },
+  {
+    "id": "reassess-after-approach-step-limit",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial_task",
+      "task_keywords": [
+        "bowl",
+        "on the top of the cabinet"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When a rim approach stops outside tolerance. Inspect pose error and fresh finger/rim geometry before closing or retrying; calibration gives only a surface point. Verify wall bracketing, then retention. Recheck after incomplete motion, uncertain depth, occlusion or pose changes."
+  },
+  {
+    "id": "relocalize-after-failed-placement",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_task",
+      "task_keywords": [
+        "basket",
+        "salad dressing"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When failed placement displaces the object. Relocalize, stage open above it, refresh the view and align to its current pose. Verify alignment, then closure and a retained lift clear of support. Recheck after movement, contact or occlusion."
+  },
+  {
+    "id": "verify-retention-after-transport",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_swap",
+      "task_keywords": [
+        "drawer"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When transporting a lifted bowl or wine bottle toward a drawer top. Reassess retention and support despite a closed command. Verify following motion, gripper contact and destination support. Recheck after transport, jaw changes, contact changes or occlusion."
+  },
+  {
+    "id": "verify-grasp-with-test-lift",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_task",
+      "task_keywords": [
+        "wine bottle"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When a stalled descent leaves apparent bottle-neck alignment. Reassess finger-to-neck geometry, close if justified, and test-lift cautiously. Verify bottle motion, suspension, and tabletop clearance. Recheck after lifting, transport, slip, or visibility changes."
+  },
+  {
+    "id": "verify-placement-geometry-before-descent",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_task",
+      "task_keywords": [
+        "wine bottle"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When lowering a retained bottle onto a plate or into a bowl. Check support geometry; after a stall, reassess release and stop if the bowl shifts or tilts. Verify motion, stop reason, alignment, base/rim clearance, and bowl pose. Recheck after contact, support motion, grip, or visibility loss."
+  },
+  {
+    "id": "target-disambiguation-before-descent",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_task",
+      "task_keywords": [
+        "pick the tomato sauce"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When similar containers make identity uncertain. Identify the can in the current view and stage above it; calibration locates only a surface. Verify identity and alignment before descent. Recheck after contact, occlusion, view changes, or failed descent."
+  },
+  {
+    "id": "verify-grasp-with-observed-lift",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_swap",
+      "task_keywords": [
+        "bowl"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When closure or lift leaves retention uncertain. Treat calibration as a surface anchor; inspect jaw–rim fit, lift within clearance, and reopen before retrying. Verify the bowl follows the gripper against stationary references. Recheck after grasp, motion, contact, jaw changes, or occlusion."
+  },
+  {
+    "id": "emit-one-valid-planner-report",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_swap",
+      "task_keywords": []
+    },
+    "priority": "normal",
+    "rule": "When planner output is rejected as concatenated or non-JSON. Emit one schema-valid report; separate tool requests and retain the latest observation. Verify parser acceptance and execution before claiming physical progress. Recheck formatting and routing after parser or dispatch errors."
+  },
+  {
+    "id": "verify-retention-after-transport",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_swap",
+      "task_keywords": [
+        "bowl"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When a bowl may remain held or unsupported after transport. Assess retention and destination support separately; closed jaws or proximity prove neither. Verify bowl motion, visible contact, support, and gripper separation. Recheck after transport, descent, jaw or contact changes, or occlusion."
+  },
+  {
+    "id": "reassess-after-approach-step-limit",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial_task",
+      "task_keywords": [
+        "bowl"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When approaches stall or stop short. Inspect achieved pose and rim geometry; stop worsening or misdirected corrections. Verify pose errors, rim bracketing, and lift retention; calibration gives a surface point. Recheck after limits, occlusion, or pose changes."
+  },
+  {
+    "id": "emit-single-json-object",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_task",
+      "task_keywords": []
+    },
+    "priority": "normal",
+    "rule": "When JSON parsing fails. Emit one schema-valid object; separate inspection from reports. Repair from results without replay; resolve completion before redispatch. Verify result matching and no simulation advance during report retries. Recheck after stale observations or parser changes."
+  },
+  {
+    "id": "verify-gripper-aperture-before-reapproach",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial_task",
+      "task_keywords": [
+        "pick the akita black bowl"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When the gripper reopens before reapproach. Check measured aperture, keep fingers open during staging and reassess wall bracketing. Verify aperture increase and finger clearance; calibration does not establish contact. Recheck after staging, pose changes, occlusion or aperture mismatch."
+  },
+  {
+    "id": "reassess-achieved-pose-after-step-limit",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_swap",
+      "task_keywords": [
+        "pick"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When motion stalls, jaws shift or execution reaches limits. Treat calibration as a surface reference; replan from achieved geometry; stop at episode exhaustion. Verify status, pose, aperture, alignment and clearance. Recheck after correction, actuation, descent or recalibration."
+  },
+  {
+    "id": "single-json-response-contract",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_swap",
+      "task_keywords": []
+    },
+    "priority": "normal",
+    "rule": "When extra-data errors occur or requests mix with reports. Return one schema-valid object; reconcile execution before retrying. Verify full-response parsing and match reports to execution records. Recheck after continuations, role changes, assembly changes or recurrence."
+  },
+  {
+    "id": "verify-placement-geometry-before-descent",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "*",
+      "task_keywords": [
+        "basket",
+        "bowl",
+        "plate"
+      ],
+      "keyword_match": "any"
+    },
+    "priority": "critical",
+    "rule": "A held object will descend. Align its base footprint to the interior or support using its current object-to-TCP offset. Lower in stages; stop if the container shifts or tilts. Confirm rim clearance in both views; report hidden fit or support. Recheck after contact, grip or pose changes or occlusion."
+  },
+  {
+    "id": "lift-clear-and-relocalize-after-container-disturbance",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "*",
+      "task_keywords": [
+        "basket",
+        "bowl"
+      ],
+      "keyword_match": "any"
+    },
+    "priority": "critical",
+    "rule": "Placement contact disturbs the object or container. Report shifts, tipping or grip loss immediately; stop descent. If retained and active, lift clear and relocalize. Verify co-motion, a rim gap and an upright container; settling needs later views. Recheck after contact, grip changes or occlusion."
+  },
+  {
+    "id": "verify-placement-target-identity",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_swap",
+      "task_keywords": []
+    },
+    "priority": "normal",
+    "rule": "When selecting a bowl or circular placement target. Confirm rim, shape and context beyond labels; reselect after conflicting feedback. Verify corrected staging and bowl-over-plate alignment against stationary references. Recheck after occlusion or transport and before descent."
+  },
+  {
+    "id": "restage-after-repeated-approach-stalls",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_task",
+      "task_keywords": [
+        "plate"
+      ]
+    },
+    "priority": "critical",
+    "rule": "When plate-rim approaches repeatedly stall or miss. Stop deeper retries; reopen, retreat with observed clearance and relocalize both fingers. Verify staging arrival, jaw-rim alignment and underside clearance. Recheck if retreat or restaging stalls."
+  },
+  {
+    "id": "track-budget-through-placement",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_task",
+      "task_keywords": [
+        "put"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When retries threaten placement completion. Track steps; reserve capacity for retention checks, transport, alignment, lowering and release. Verify arrival, stop reason and supported release; report unfinished stages. Recheck before retries or precision moves and after stalls."
+  },
+  {
+    "id": "respect-relative-motion-bounds",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_task",
+      "task_keywords": []
+    },
+    "priority": "low",
+    "rule": "When planning motion. Use calibrated staging for longer travel and bounded relative steps near contact; treat rejection as unexecuted. Verify acceptance, displacement, arrival and clearance; calibration gives a surface point. Recheck limits before dispatch, after stalls, pose changes or occlusion."
+  },
+  {
+    "id": "respect-relative-motion-limits",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial_swap",
+      "task_keywords": []
+    },
+    "priority": "low",
+    "rule": "When relative moves may exceed bounds or are rejected. Check full displacement; use calibrated motion with current target and clearance for oversized moves. Verify motion after rejection, arrival and clearance separately. Recheck after bound/geometry changes, nonarrival or unexpected contact/motion."
+  },
+  {
+    "id": "reobserve-after-partial-motion",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial_task",
+      "task_keywords": [
+        "place it on the plate"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When placement corrections stall or drift. Stop stalled corrections; replan from achieved pose and bowl-to-TCP offset; check footprint and rim clearance before descent. Verify retention; inspect bowl and plate for shifts or tipping at contact. Recheck after rotation, grip changes or occlusion."
+  },
+  {
+    "id": "verify-placement-geometry-before-descent",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "*",
+      "task_keywords": [
+        "basket"
+      ],
+      "keyword_match": "any"
+    },
+    "priority": "critical",
+    "rule": "When entering a basket. Reject foreground/ambiguous hits; align footprint using TCP offset, clear fingers from rim and stage descent. Verify grip and object/basket stability in both views; stop on slip, shift or tipping. Recheck before entry or after contact/occlusion; leave hidden fit unverified."
+  },
+  {
+    "id": "verify-retention-after-closure",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_swap",
+      "task_keywords": [
+        "pick"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When closing or adjusting jaws. Use a short vertical test lift before transfer; reopen with clearance and realign only after a confirmed miss. Verify lift-off, co-motion and stable finger-relative pose in both views. Recheck after larger lifts, transfer, contact, reopening or occlusion."
+  },
+  {
+    "id": "bounded-motion-recovery",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_swap",
+      "task_keywords": [
+        "pick"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When correcting motion or handling rejection. Check helper bounds and execution state; distinguish surface offset from TCP travel, refresh geometry and lift/recenter if clearance falls. Verify achieved pose, retention and clearance in current geometry. Recheck after motion, contact or timeout."
+  },
+  {
+    "id": "separate-benchmark-success-from-placement",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_swap",
+      "task_keywords": [
+        "place it in the basket"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When placing. Refresh disturbed opening geometry; withdraw along a checked clear path. Verify empty fingers, rim clearance and bottle/basket stability after withdrawal; log benchmark status separately. Recheck after contact, occlusion or mismatch; leave hidden bottom contact unverified."
+  },
+  {
+    "id": "verify-side-engagement-before-closure",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_task",
+      "task_keywords": [
+        "pick"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When contact is unclear or a lift is empty. Check opposing pad-to-side overlap and support clearance; reopen and revise contact after misses. Verify object–gripper lift co-motion clear of support; leave hidden contact unverified. Recheck after descent, contact, reopening or view changes."
+  },
+  {
+    "id": "verify-grasp-with-lift",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_task",
+      "task_keywords": [
+        "pick"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When closure leaves retention unproven. Use a clearance-limited lift before transport; if empty, stop, reopen clear of the object and revise. Verify object–gripper co-motion and support separation. Recheck during lifting, transport, contact or occlusion."
+  },
+  {
+    "id": "relocalize-basket-interior-before-descent",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_task",
+      "task_keywords": [
+        "place it in the basket"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When basket entry is uncertain. Align the held footprint over the interior at clearance height using its TCP offset. Verify full object/finger rim clearance, retention and basket stability. Recheck before descent and immediately after contact; stop on slip, tipping or displacement."
+  },
+  {
+    "id": "respect-relative-motion-limits",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_task",
+      "task_keywords": []
+    },
+    "priority": "normal",
+    "rule": "When planning relative or calibrated moves. Respect bounds; use calibrated moves with observed clearance; re-anchor oversized offsets on nearer visible surfaces. Verify actual travel, endpoint, clearance and retention. Recheck after rejection, contact, anchor movement or limit changes."
+  },
+  {
+    "id": "separate-benchmark-success-from-release",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_task",
+      "task_keywords": [
+        "place it in the basket"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When success stops placement before release or settling. Report benchmark success separately from physical placement. Verify arrival, release, withdrawal and stable support inside the basket; mark unseen stages unverified. Recheck after termination or object/basket motion."
+  },
+  {
+    "id": "relocalize-after-wrist-reorientation",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_swap",
+      "task_keywords": []
+    },
+    "priority": "normal",
+    "rule": "When wrist rotation shifts TCP or crops the object. Rotate in bounded steps from clear staging; refresh pose and recenter if cropped, preserving orientation. Verify retention, tilt, grasp-offset footprint over support and jaw clearance. Recheck after rotation, target motion, contact or occlusion."
+  },
+  {
+    "id": "test-local-control-after-repeated-stalls",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_swap",
+      "task_keywords": []
+    },
+    "priority": "normal",
+    "rule": "When staging repeatedly hits step limits. Stop long retries; reassess pose and clearance. After any bounded wrist adjustment, refresh pose and test a short move. Verify pose tolerances, retention and clearance; probe success is local. Recheck after rotation, longer moves, drift or occlusion."
+  },
+  {
+    "id": "verify-grasp-with-observed-lift",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_swap",
+      "task_keywords": []
+    },
+    "priority": "normal",
+    "rule": "When retention is uncertain. Inspect contact and vertical neck pad overlap before closing; reopen and revise after empty lifts; test a bounded lift with clearance. Verify initial retention: body and base rise against fixed surroundings. Recheck after closure, motion, contact changes or occlusion."
+  },
+  {
+    "id": "separate-task-success-from-waypoint-arrival",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_swap",
+      "task_keywords": []
+    },
+    "priority": "normal",
+    "rule": "When success ends motion early or conflicts with flags. Read stop reason and steps before retrying; separate success, arrival, release and stability. Verify support and visible gripper separation, regardless of opening commands. Recheck stability later; report blocked checks as unverified."
+  },
+  {
+    "id": "respect-relative-motion-limits",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_swap",
+      "task_keywords": []
+    },
+    "priority": "low",
+    "rule": "When preparing relative actions or retries. Check active bounds and vector counts; fix rejections; reuse calibration only with unchanged pose and scene. Verify unchanged pose and steps after rejection, then retry displacement and arrival. Recheck after motion, contact, scene or limit changes."
+  },
+  {
+    "id": "restage-after-repeated-approach-stalls",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_task",
+      "task_keywords": [
+        "drawer"
+      ]
+    },
+    "priority": "critical",
+    "rule": "When drawer-handle approaches repeatedly stall. Stop unchanged or deeper retries; check jaw-bar fit and target versus TCP, then retreat with clearance and restage. Verify outward and vertical progress; staging is not capture. Recheck after stalls, recalibration or grip changes."
+  },
+  {
+    "id": "recheck-alignment-after-wrist-rotation",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_task",
+      "task_keywords": []
+    },
+    "priority": "normal",
+    "rule": "When actuation or neutral input precedes approach. Refresh TCP pose, aperture and both finger poses; reopen in bounded batches and restage after drift. Verify finger alignment and clearance; keep plate-rim contact and underside clearance. Recheck after actuation, motion or stalls, before descent."
+  },
+  {
+    "id": "verify-grasp-with-test-lift",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "*",
+      "task_keywords": []
+    },
+    "priority": "critical",
+    "rule": "When seating stalls or retention is unclear. Finish closure in bounded batches; test-lift before travel. After empty lifts, reopen and revise contact, not depth alone. Verify co-motion, stable finger pose and support separation; occluded retention is unknown. Recheck after grip changes or contact."
+  },
+  {
+    "id": "verify-placement-geometry-before-descent",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "*",
+      "task_keywords": [
+        "drawer"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When entering an open drawer. Align the held footprint to the interior using its grasp-to-TCP offset; descend in stages; stop on shift, tipping or grip loss. Verify retention and finger-rim clearance before entry and both poses on contact; hidden fit stays unknown. Recheck after motion or contact."
+  },
+  {
+    "id": "separate-release-from-stability",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_goal_task",
+      "task_keywords": [
+        "put"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When terminal success ends descent or opening. Stop without pose retries; distinguish arrival, opening, release, support, withdrawal and stability. Verify pose, finger separation and independent support after withdrawal and settling; leave unseen stages unknown. Recheck only with later observations."
+  },
+  {
+    "id": "verify-support-relation-before-grasp",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial_swap",
+      "task_keywords": [
+        "akita black bowl"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When bowl identity is uncertain. Resolve support and layer before descent; track identity through transfer; retract open through checked clearance only if unheld. Verify cross-view support and origin; labels or flags do not justify switching. Recheck after candidate, view or drawer changes."
+  },
+  {
+    "id": "verify-retention-with-test-lift",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial_swap",
+      "task_keywords": [
+        "akita black bowl",
+        "pick"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When retention is unclear and no empty lift is seen. Close in bounded steps; test-lift before lateral travel; extend within clearance; reopen and revise if the bowl stays supported. Verify bowl co-motion, stable finger-relative pose and support separation. Recheck after grip changes or occlusion."
+  },
+  {
+    "id": "step-limited-approach-reassess",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial_swap",
+      "task_keywords": [
+        "pick the akita black bowl"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When motion stalls, drifts or shifts objects. Stop descent; replan from achieved TCP and object offset; stage laterally first; if unheld, retreat open through observed upward clearance. Verify finger and whole-arm clearance separately, retention and scene poses. Recheck after contact or nonarrival."
+  },
+  {
+    "id": "release-withdraw-verify-support",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial_swap",
+      "task_keywords": [
+        "place it on the plate"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When release or support is uncertain. Open fully; retreat upward while open through checked clearance; leave occluded release or support unknown despite success flags. Verify both fingers are clear and the bowl stays behind; check stable plate support separately. Recheck after retreat or contact."
+  },
+  {
+    "id": "hollow-bowl-wall-pinch",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "*",
+      "task_keywords": [
+        "bowl"
+      ]
+    },
+    "priority": "critical",
+    "rule": "When bowl contact is hidden or a lift is empty. Center high only to stage; check pad-wall/rim contact and inner/outer clearance before closing; reopen and revise empty grasps. Verify whole-bowl co-motion, stable finger-relative pose and a support gap. Recheck on descent, closure, slip or occlusion."
+  },
+  {
+    "id": "verify-placement-geometry-before-descent",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "*",
+      "task_keywords": [
+        "bowl",
+        "plate"
+      ],
+      "keyword_match": "any"
+    },
+    "priority": "critical",
+    "rule": "When placing objects. Reject wrong/ambiguous hits; fit the grasp-offset footprint to support and clear fingers/rim in both views before staged descent; stop on shift, tilt or slip. Verify both poses and retention after contact; floor depth is not underside clearance. Recheck on occlusion or regrasp."
+  },
+  {
+    "id": "separate-benchmark-success-from-stable-placement",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial_task",
+      "task_keywords": [
+        "place it on the plate"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When success stops placement. Check stop reasons before retrying; separate benchmark success from placement. Verify full opening, finger clearance and stable support after withdrawal if permitted; otherwise leave them unverified. Recheck when control, gripper state or support visibility changes."
+  },
+  {
+    "id": "respect-relative-motion-limits",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial_task",
+      "task_keywords": []
+    },
+    "priority": "low",
+    "rule": "When choosing fine relative motion. Check nonzero step limits; use permitted corrections or calibrated larger moves after path inspection. Verify execution and achieved pose; staging does not establish grasp readiness. Recheck after rejection, partial motion, changed bounds or stale observations."
+  },
+  {
+    "id": "front-horizontal-drawer-engagement",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "*",
+      "task_keywords": [
+        "drawer"
+      ]
+    },
+    "priority": "critical",
+    "rule": "Handle engagement is needed. Stage clear in front, face the cabinet; align open jaws to the selected layer's bar at handle height, advance horizontally, close, then pull outward on its observed slide axis. Require cabinet-relative jaw-drawer co-motion; flag stalls. On stalls, retreat high and clear."
+  },
+  {
+    "id": "verify-drawer-opening-and-handle-retention",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "*",
+      "task_keywords": [
+        "drawer"
+      ]
+    },
+    "priority": "critical",
+    "rule": "A drawer is being pulled open. Pull in segments along the observed slide axis; stop at usable opening or lost contact. Require drawer-jaw co-motion against the cabinet; report separation or absent drawer motion promptly. After pulls or retreat, check opening and transfer clearance before regrasping."
+  },
+  {
+    "id": "verify-grasp-with-test-lift",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "*",
+      "task_keywords": [
+        "plate"
+      ]
+    },
+    "priority": "critical",
+    "rule": "A plate needs lifting. Check table clearance; pinch one rim low with one finger in and one out. Reopen empty grasps; realign. Flag both fingers inside, high pads, blocked clearance or no lift-off; a small lift must show co-motion and a gap. Recheck on motion or occlusion; extend unclear lifts only."
+  },
+  {
+    "id": "recheck-target-identity-after-placement-mismatch",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_swap",
+      "task_keywords": [
+        "basket",
+        "bbq sauce"
+      ]
+    },
+    "priority": "critical",
+    "rule": "When stable basket placement leaves success false. Compare placed and remaining bottles before height or orientation retries. Verify RGB-D identity, release, support and status separately. Recheck before further retries; retain placement checks if identity matches."
+  },
+  {
+    "id": "distinguish-condiment-bottle-identities",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_object_swap",
+      "task_keywords": [
+        "bbq sauce"
+      ]
+    },
+    "priority": "critical",
+    "rule": "When you select BBQ sauce. Choose slim, dark-amber BBQ with a reddish-brown cap; exclude broad gray-capped ketchup and pale, curved, green-capped dressing. Verify cap, shape and tracking. Recheck identity before pose retries if placement leaves success false."
+  },
+  {
+    "id": "verify-retention-before-transport",
+    "scope": {
+      "adapter": "adapters.libero:create",
+      "suite": "libero_spatial_task",
+      "task_keywords": [
+        "bowl",
+        "pick"
+      ]
+    },
+    "priority": "normal",
+    "rule": "When a closed-gripper bowl test lift ends. Keep closed if uncertain; support retained bowls before opening. Verify co-motion, stable finger-relative pose and a support gap; width alone is inconclusive. Recheck unclear retention while closed for actual slip or emptiness."
+  }
+]

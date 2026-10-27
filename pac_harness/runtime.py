@@ -54,6 +54,13 @@ class Harness:
 
     def _post(self):
         after = self._observe()
+        record_frame = getattr(self.environment, "record_action_frame", None)
+        if callable(record_frame):
+            frame = record_frame(turn=self.state.data["turn"], action=deepcopy(self.state.data["action"]),
+                execution=deepcopy(self.state.data["execution"]), observation=deepcopy(after),
+                request_id=self.state.data["request_id"])
+            self.journal.event("action_frame", artifact=frame)
+            self.output(f"[{self.state.data['turn']}] Result frame: {frame['path']}")
         self.state.update(after=after)
         payload = {"task_state": self.state.context(), "before": self.state.data["before"],
                    "after": after, "action": self.state.data["action"], "execution": self.state.data["execution"]}
@@ -105,12 +112,25 @@ class Harness:
                     if update:
                         return {"status": "restart_required", "changed_files": update.get("changed_files", [])}
                     if self.state.data["phase"] == "completed":
-                        return {"status": "completed", "turns": self.state.data["turn"]}
+                        return self.state.data.get("terminal_result") or {
+                            "status": "completed", "turns": self.state.data["turn"]}
                     try:
                         if self.state.data["phase"] == "post_pending":
                             self._post()
                             failures = 0
                             continue
+                        terminal = getattr(self.environment, "terminal_result", None)
+                        if terminal is not None:
+                            result = terminal()
+                            if result is not None:
+                                self.journal.event("environment_terminal", result=result,
+                                                   detector=self.state.data.get("detector"))
+                                if result.get("status") == "completed":
+                                    result = {**result, "turns": self.state.data["turn"]}
+                                    self.state.update(phase="completed", turn_open=False,
+                                                      terminal_result=result)
+                                self.output("Environment terminal: " + dumps(result))
+                                return result
                         if turns >= max_turns:
                             return {"status": "budget_exhausted", "turns": self.state.data["turn"]}
                         if not self.state.data.get("turn_open", False):
@@ -156,11 +176,12 @@ class Harness:
                             self.journal.event("execution_unknown", error_type=type(exc).__name__)
                             return {"status": "execution_unknown", "reason": "Execution interrupted; resume queries the adapter before any new action"}
                         failures += 1
-                        self.journal.event("retry", phase=self.state.data["phase"], error_type=type(exc).__name__)
+                        self.journal.event("retry", phase=self.state.data["phase"], error_type=type(exc).__name__, reason=str(exc))
                         self.state.remember("feedback", reason=str(exc))
                         self.output(f"Retry {self.state.data['phase']}: {exc}")
                         if failures >= max_failures:
-                            return {"status": "retry_exhausted", "phase": self.state.data["phase"], "error_type": type(exc).__name__}
+                            return {"status": "retry_exhausted", "phase": self.state.data["phase"],
+                                    "error_type": type(exc).__name__, "reason": str(exc)}
             except KeyboardInterrupt:
                 if self.state.data["phase"] == "executing":
                     self.state.update(phase="execution_unknown")

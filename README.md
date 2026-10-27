@@ -1,8 +1,10 @@
 # PAC-Harness
 
-项目名称与安装后的命令均为 `PAC-Harness`；Python 包名为 `pac_harness`（Python 导入标识符不能包含连字符），可运行 `python -m pac_harness`。当前本地目录仍为 `C:\Biology\Harness-Core`，下方命令沿用实际路径。
+LIBERO-Pro: see [setup, six-suite evaluation, resume and table export](LIBERO_PRO.md).
 
-从现有 Harness 项目提取的通用三 Agent 运行框架。保留 **Planner → action → Detector post → Planner**、按需工具、任务状态、日志、记忆和主动 ToUser；具体场景通过独立适配器接入。
+项目名称与安装后的命令均为 `PAC-Harness`；Python 包名为 `pac_harness`（Python 导入标识符不能包含连字符），可运行 `python -m pac_harness`。当前本地目录为 `C:\Biology\PAC_Harness`，下方命令沿用实际路径。
+
+从现有 Harness 项目提取的通用 Agent 运行框架。保留 **Planner → action → Detector post → Planner**、按需工具、任务状态、日志、记忆和主动 ToUser；新增 **Analyzer**，在运行结束后复盘日志与结果图，提炼按需检索的 Planner / Detector 经验规则。具体场景通过独立适配器接入。
 
 当前版本：**0.1.0，通用提取版**。这是可运行的基础框架；实际业务仍需实现动作与观察适配器、提供相应知识并验证效果。默认示例是本地列表排序，不代表模型已能自动操作任意业务系统。
 
@@ -13,7 +15,7 @@
 ### Windows（PowerShell）
 
 ```powershell
-cd C:\Biology\Harness-Core
+cd C:\Biology\PAC_Harness
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e .
@@ -49,7 +51,7 @@ python -m pip install -e .
 
 | 项目 | Windows | Linux |
 |---|---|---|
-| 项目路径 | `C:\Biology\Harness-Core` | 如 `/home/user/PAC-Harness` |
+| 项目路径 | `C:\Biology\PAC_Harness` | 如 `/home/user/PAC-Harness` |
 | 设置环境变量 | `$env:OPENAI_API_KEY = '<你的密钥>'` | `export OPENAI_API_KEY='<你的密钥>'` |
 | 虚拟环境激活 | `.\.venv\Scripts\Activate.ps1` | `source .venv/bin/activate` |
 | ToUser 离线验证 | Windows Codex 沙箱 | bubblewrap 与系统命名空间支持 |
@@ -99,6 +101,10 @@ flowchart LR
     Evidence --> Detector[Detector post]
     Detector --> State[任务状态与历史]
     State --> Planner
+    Runtime -->|运行结束后按配置启用| Analyzer[Analyzer 复盘]
+    Analyzer --> Rules[按适用范围检索的经验规则]
+    Rules --> Planner
+    Rules --> Detector
     User -->|Ctrl+G 或 --assist| ToUser[ToUser / Codex CLI]
     ToUser --> Stage[隔离修改与离线验证]
     Stage --> Restart[应用修改并恢复运行]
@@ -110,6 +116,7 @@ flowchart LR
 | Planner | 按需调用信息工具，最终输出一个动作或真实完成声明 | `pac_harness/agents.py`、`prompts/planner.md` |
 | Detector | 对照预期和结果，反馈进展、异常、未知及事实 | `prompts/detector.md` |
 | ToUser | 用户主动请求分析、指导、修改代码或知识 | `pac_harness/to_user.py` |
+| Analyzer | 运行后复盘日志与结果图，保存带适用范围和证据的经验规则 | `pac_harness/post_run.py`、`pac_harness/experience.py` |
 | 执行调度 | 单步执行、后检重试、检查点恢复 | `pac_harness/runtime.py` |
 | 场景适配器 | 定义观察、动作、执行和结果查询 | `pac_harness/contracts.py`、`examples/list_sorting.py` |
 | 工具与证据 | 观察、历史、技能、按需读取文本或图像 | `pac_harness/tools.py` |
@@ -183,6 +190,8 @@ ToUser 按用户意图区分四种处理方式：
 | 返回任务 `return_to_task` | 真正结束对话；退出操作不写成 Planner/Detector 的任务指导 |
 
 “以后不要这样”“修复这个反复出现的问题”“修改 memory”应落实为文件修改；“这一步先……”属于本次指导。缺少必要信息时可以追问。声称修改却没有 diff、候选文件语法错误或离线测试失败时，会把具体错误和测试输出交回同一个 Codex 会话自动修正，默认最多 **2 次**；可用 `to_user.max_repair_attempts` 设置为 0–3。连接错误、并发修改或应用/回滚失败不会进入该自动重写循环。修正仍失败时，显示错误和审计目录，保留未应用的候选文件。
+
+Set `analyzer.enabled: true` to review complete episode logs and result images automatically. The analyzer writes concise English rules to `memories/planner.analyzer.json` and `memories/detector.analyzer.json`; each role loads matching rules automatically. Detailed reports and evidence remain audit artifacts, and code suggestions are not applied automatically. See [LIBERO.md](LIBERO.md) for configuration and historical review commands.
 
 成功应用修改后自动退出对话。仅更新 `memories/`、`prompts/`、`skills/` 中的知识文件时，两个任务 Agent 在后续调用中重新读取；Python（包括技能脚本）及其他源码修改触发运行中的 CLI 重启，并从原检查点恢复。已完成动作保留 `post_pending` 和 BEFORE，恢复后只补后检，不重复执行动作。独立 `--assist` 返回终端，由用户随后 `--resume`；网页协助不绑定正在运行的业务任务。
 
@@ -271,3 +280,7 @@ python -m examples.calibrated_motion
 - 代码已通过离线测试和本地演示，未调用真实模型或业务服务进行验收。
 
 提取来源、保留与剔除范围见 [EXTRACTION.md](EXTRACTION.md)；75 项离线测试和演示结果见 [VALIDATION.md](VALIDATION.md)。
+
+## LIBERO 仿真评测
+
+已提供 LIBERO 环境适配器和通过真实 Harness 调度的批量成功率评测入口。安装后可用 `python -m pac_harness.libero_eval --smoke` 无模型检查仿真调用链；模型配置、完整评测命令及动作约定见 [LIBERO 接入指南](LIBERO.md)。

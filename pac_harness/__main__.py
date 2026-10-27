@@ -11,7 +11,7 @@ import uuid
 from .agents import Agent, ChatClient
 from .console_hotkey import ConsoleHotkey
 from .runtime import Harness
-from .storage import RunLock, TaskState, confined, dumps, loads
+from .storage import RunLock, TaskState, confined, dumps, loads, write_json
 from .to_user import ToUser
 from .tools import Knowledge
 
@@ -117,6 +117,10 @@ def _main(argv=None):
         if options.demo:
             command.append("--demo")
         os.execv(sys.executable, command)
+    if not options.preview and not options.demo and result['status'] not in {'interrupted', 'restart_required'}:
+        write_json(directory / 'result.json', result)
+        from .post_run import maybe_review
+        maybe_review(root, directory, config)
     return 0 if result["status"] in {"completed", "preview", "interrupted"} else 1
 
 

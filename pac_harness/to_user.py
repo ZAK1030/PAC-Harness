@@ -108,6 +108,18 @@ class ToUser:
             raise ValueError("max_repair_attempts must be an integer from 0 to 3")
         self.max_repair_attempts = repairs
 
+    def review_run(self, directory, *, model, force=False, client=None):
+        """Noninteractive post-run mode; only validated scoped memory is written.
+
+        Interactive coding assistance still uses the isolated Codex backend.
+        Retrospectives use the configured vision model with no execution tools.
+        """
+        from .post_run import RunReviewer
+        settings = self.config.get("post_run", {})
+        selected_model = {**model, **settings.get("model", {})}
+        return RunReviewer(self.root, settings, selected_model, client=client,
+                           output=self.output_fn).review(directory, force=force)
+
     def _sources(self, root):
         result = {}
         for folder, directories, names in os.walk(root, followlinks=False):

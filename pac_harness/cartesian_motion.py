@@ -27,7 +27,7 @@ def pose_matches(before, after, translation=.0005, orientation=.001):
             and max(abs((a-b+math.pi) % (2*math.pi)-math.pi) for a, b in zip(before[3:], after[3:])) <= orientation)
 
 
-def approach_candidate(grounding, pose, safety, hardware):
+def approach_candidate(grounding, pose, safety, hardware, *, direct=False):
     """Bound an approach ray at first entry into the fine radius of the object.
 
     Object distance excludes the approach offset, as in Harness-GPT. A ray
@@ -37,12 +37,17 @@ def approach_candidate(grounding, pose, safety, hardware):
     current_tcp = convert_pose(pose, reference, "tcp", hardware)[:3]
     obj = grounding["object_xyz_base_m"]
     threshold = positive(safety.get("fine_entry_distance_m", .05), "fine_entry_distance_m")
-    if math.dist(current_tcp, obj) <= threshold + 1e-9:
+    if not direct and math.dist(current_tcp, obj) <= threshold + 1e-9:
         raise ValueError("Within fine entry distance; use current evidence for move_relative")
     delta = [a-b for a, b in zip(grounding["target_xyz_m"], pose[:3])]
     distance = math.dist(delta, [0, 0, 0])
     if distance <= 1e-7:
         raise ValueError("Approach waypoint reached; choose fresh evidence or a new approach offset")
+    if direct:
+        return {"target_pose": list(grounding["target_xyz_m"]) + pose[3:],
+                "delta_m": delta, "distance_to_object_m": math.dist(current_tcp, obj),
+                "distance_to_approach_target_m": distance, "planned_distance_m": distance,
+                "motion_mode": "coarse_direct"}
     cap = positive(safety.get("coarse_step_m", .05), "coarse_step_m")
     relative = [a-b for a, b in zip(current_tcp, obj)]
     projection = sum(a*b/distance for a, b in zip(relative, delta))
@@ -68,6 +73,8 @@ class CartesianEnvironment:
         self.safety = dict(config["safety"])
         if type(config.get("motion_enabled", False)) is not bool:
             raise ValueError("motion_enabled must be boolean")
+        if type(config.get("calibrated_direct", False)) is not bool:
+            raise ValueError("calibrated_direct must be boolean")
         # A coordinate reference is mandatory; do not inherit legacy guesses.
         if self.safety.get("workspace_reference") not in {"tcp", "flange"}:
             raise ValueError("Declare safety.workspace_reference as tcp or flange")
@@ -78,7 +85,7 @@ class CartesianEnvironment:
         self.calibration = self.grounder.validate_calibration_files()
         self.frames = OrderedDict()
 
-    def observe(self):
+    def observe(self, *, artifact_prefix=None):
         robot = self.backend.state()
         frame = self.provider.capture(robot)
         if not isinstance(frame, Observation) or not isinstance(frame.id, str) or not frame.id or frame.id in self.frames:
@@ -103,9 +110,11 @@ class CartesianEnvironment:
                 raise ValueError("Depth must be floating point metres, not millimetres")
             # Filenames use counts, not untrusted camera names or source IDs.
             relative = self.directory.relative_to(self.root).as_posix()
-            path = confined(self.root, f"{relative}/frames/{time.time_ns()}-{len(artifacts)}.png")
+            prefix = artifact_prefix or f"frames/{time.time_ns()}"
+            path = confined(self.root, f"{relative}/{prefix}-{len(artifacts)}.png")
             path.parent.mkdir(parents=True, exist_ok=True)
-            Image.fromarray(rgb).save(path)
+            if artifact_prefix is None or not path.exists():
+                Image.fromarray(rgb).save(path)
             artifacts.append({"path": path.relative_to(self.root).as_posix(), "type": "image",
                               "camera": view, "observation_id": frame.id})
             catalog.append({"view": view, "rgb_shape": list(rgb.shape), "depth_shape": list(depth.shape),
@@ -125,10 +134,16 @@ class CartesianEnvironment:
 
     def actions(self):
         common = {"observation_id": {"type": "string"}, "target": {"type": "string"}}
+        coarse_description = (
+            "Move to the full calibrated pixel target plus base-frame approach offset in one action. "
+            "Choose an offset above the object for staging, then use move_relative for fine corrections. "
+            "Physical controller steps still count toward the episode horizon. "
+            if self.config.get("calibrated_direct", False) else
+            "One bounded increment per action, not a whole trajectory. ")
         return [
             {"name": "move_calibrated", "description":
              "Approach a selected native RGB pixel using registered depth and robot calibration. "
-             "One bounded increment per action, not a whole trajectory. Model metric coordinates are forbidden.",
+             + coarse_description + "Model metric coordinates are forbidden.",
              "parameters": parameters({**common, "view": {"type": "string", "enum": list(self.calibration["cameras"])},
                  "pixel_uv": {"type": "array", "items": {"type": "number"}},
                  "approach_offset_m": {"type": "array", "items": {"type": "number"}}},
@@ -158,7 +173,8 @@ class CartesianEnvironment:
                 raise GroundingError("Model metric coordinates cannot certify calibrated grounding")
             result = self.grounder.resolve({"action": {"target": args["target"], "grounding": {
                 k: args[k] for k in ("view", "pixel_uv", "approach_offset_m") if k in args}}}, selected)
-            candidate = approach_candidate(result, pose, self.safety, self.hardware)
+            candidate = approach_candidate(result, pose, self.safety, self.hardware,
+                direct=self.config.get("calibrated_direct", False))
             candidate["grounding"] = result
         elif action["name"] == "move_relative":
             if set(args) != {"observation_id", "target", "delta_m"}:

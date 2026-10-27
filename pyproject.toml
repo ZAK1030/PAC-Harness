@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "PAC-Harness"
 version = "0.1.0"
-description = "Scenario-independent Planner, Detector and ToUser runtime"
+description = "Planner, Detector, ToUser and post-run Analyzer runtime"
 requires-python = ">=3.11"
 dependencies = []
 
@@ -16,6 +16,7 @@ franka = ["franky-control>=2.0,<3; sys_platform == 'linux'"]
 
 [project.scripts]
 PAC-Harness = "pac_harness.__main__:main"
+PAC-LIBERO = "pac_harness.libero_eval:main"
 
 [tool.setuptools.packages.find]
-include = ["pac_harness*", "examples*"]
+include = ["pac_harness*", "examples*", "adapters*"]
