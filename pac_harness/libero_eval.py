@@ -120,7 +120,7 @@ def main(argv=None):
         output = Path(args.resume)
         output = output.resolve() if output.is_absolute() else (root / output).resolve()
         output.relative_to(root)
-        previous = loads((output / 'summary.json').read_text())
+        previous = loads((output / 'summary.json').read_text(encoding="utf-8"))
         if previous.get('mode') != 'evaluation':
             parser.error('Only evaluation batches can be resumed')
         for name, key in [('suite', 'suite'), ('task_ids', 'task_ids'),
@@ -144,7 +144,7 @@ def main(argv=None):
         parser.error('--episodes must be positive')
     if args.max_steps is not None and args.max_steps < 1:
         parser.error('--max-steps must be positive')
-    config = loads((root / args.config).read_text())
+    config = loads((root / args.config).read_text(encoding="utf-8"))
     settings = dict(previous['settings'] if previous else config['adapter'].get('settings', {}))
     if args.max_steps is not None:
         settings['max_steps'] = args.max_steps
@@ -190,7 +190,7 @@ def main(argv=None):
         for episode in initials:
             directory = output / f'task-{task_id:03d}-episode-{episode:03d}'
             if args.resume and (directory / 'result.json').exists():
-                saved = loads((directory / 'result.json').read_text())
+                saved = loads((directory / 'result.json').read_text(encoding="utf-8"))
                 if saved['runtime']['status'] not in {'interrupted', 'restart_required'}:
                     if not any(r['task_id'] == task_id and r['episode'] == episode for r in results):
                         results.append(saved)

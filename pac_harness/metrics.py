@@ -77,7 +77,7 @@ def episode_metrics(directory, relative):
             turns.append({"episode": relative, "role": kind, "turn": event.get("turn"),
                           "time_ns": event["time_ns"], "inference_s": event["inference_s"]})
     requests = list(attempts.values())
-    data = json.loads((directory / "result.json").read_text()) if (directory / "result.json").exists() else {}
+    data = json.loads((directory / "result.json").read_text(encoding="utf-8")) if (directory / "result.json").exists() else {}
     first = min((e["time_ns"] for e in events), default=None)
     last = max((e["time_ns"] for e in events), default=None)
     row = {"episode": relative, "success": data.get("success"),

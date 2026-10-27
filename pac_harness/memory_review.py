@@ -127,7 +127,7 @@ def collect_memory(root, adapter=None):
         full_rule = compact_rule(item)
         latest_run = item["sources"][-1]["run"]
         try:
-            report = loads(confined(root, latest_run + "/review/report.json").read_text())
+            report = loads(confined(root, latest_run + "/review/report.json").read_text(encoding="utf-8"))
             full = next((v for v in report.get("review", {}).get("findings", []) if v["id"] == item["id"]), None)
             if full:
                 full_rule = compact_rule(full)
@@ -168,12 +168,12 @@ def consolidate_memory(assistant, *, feedback, adapter=None, force=False):
         # every citation before asking the model to repair it.
         for prior in sorted(directory.glob('*/input.json'), key=lambda p: p.stat().st_mtime, reverse=True):
             try:
-                previous = loads(prior.read_text())
+                previous = loads(prior.read_text(encoding="utf-8"))
                 if (previous.get('user_feedback') != data['user_feedback']
-                        or loads((prior.parent / 'archive-before.json').read_text()) != archive):
+                        or loads((prior.parent / 'archive-before.json').read_text(encoding="utf-8")) != archive):
                     continue
                 journal_path = prior.parent / 'events.jsonl'
-                candidates = [loads(line) for line in journal_path.read_text().splitlines()]
+                candidates = [loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()]
                 draft = next((v['report'] for v in reversed(candidates) if v['event'] == 'review_candidate'), None)
                 if draft:
                     validate_review(draft, data['events'], data['scope']['task'])
@@ -190,14 +190,14 @@ def consolidate_memory(assistant, *, feedback, adapter=None, force=False):
         for role, path in ROLE_MEMORY_PATHS.items():
             target = confined(assistant.root, path)
             if target.exists():
-                write_json(run_dir / f"{role}-before.json", loads(target.read_text()))
+                write_json(run_dir / f"{role}-before.json", loads(target.read_text(encoding="utf-8")))
         path = run_dir / "candidate.json"
         report = {"status": "reviewing", "stage": "memory_consolidation", "model": assistant.model.get("model"),
             "user_feedback": data["user_feedback"], "changed_files": [], "omissions": data["omissions"]}
         write_json(run_dir / "report.json", report)
         try:
             if path.exists() and not force:
-                reply = validate_review(loads(path.read_text()), data["events"], data["scope"]["task"])
+                reply = validate_review(loads(path.read_text(encoding="utf-8")), data["events"], data["scope"]["task"])
                 validate_consolidation(reply, payload)
             else:
                 assistant.output(f"analyzer: Consolidating {len(data['lesson_catalog'])} lessons against operator priorities")

@@ -33,7 +33,7 @@ class MetricsTests(unittest.TestCase):
                  'diagnostics': {'attempt_id': 'new', 'usage': usage, 'elapsed_s': 3, 'outcome': 'completed'}},
                 {'time_ns': 5, 'event': 'model_error', 'role': 'planner', 'turn': 2,
                  'diagnostics': {'attempt_id': 'new', 'usage': usage}}]
-            (episode/'events.jsonl').write_text('\n'.join(json.dumps(e) for e in events)+'\n')
+            (episode/'events.jsonl').write_text('\n'.join(json.dumps(e) for e in events)+'\n', encoding="utf-8")
             summary = export_metrics(batch)
             self.assertEqual(summary['observed_attempts'], 2)
             self.assertEqual(summary['total_tokens_reported_sum'], 150)

@@ -52,7 +52,7 @@ class FrameTests(unittest.TestCase):
             self.assertEqual(len(list((adapter.directory/'.observations').glob('*.png'))), 4)
             self.assertTrue(all((adapter.root/a['path']).exists() for a in after['artifacts']))
             self.assertFalse((adapter.root/first['artifacts'][0]['path']).exists())
-            records = loads((adapter.directory/'frames.json').read_text())
+            records = loads((adapter.directory/'frames.json').read_text(encoding="utf-8"))
             self.assertEqual(list(records), ['1', '2'])
             self.assertEqual(records['2']['request_id'], 'r2')
             self.assertEqual(records['2']['action'], action)

@@ -97,7 +97,7 @@ class LiberoEnvironment:
             self.path = self.directory / "libero_state.json"
             self.pending = self.directory / "libero_pending.json"
             if self.path.exists():
-                self.data = loads(self.path.read_text())
+                self.data = loads(self.path.read_text(encoding="utf-8"))
                 self.obs = self.env.set_init_state(np.asarray(self.data["sim_state"]))
             else:
                 states = load_init_states(suite, self.task_id)
@@ -182,7 +182,7 @@ class LiberoEnvironment:
             "action": action, "executed_steps": (execution or {}).get("executed_steps", 0),
             "success": observation["success"], "observation_id": observation.get("observation_id")}
         index = self.directory / "frames.json"
-        records = loads(index.read_text()) if index.exists() else {}
+        records = loads(index.read_text(encoding="utf-8")) if index.exists() else {}
         records.setdefault(str(turn), record)
         write_json(index, records)
         return records[str(turn)]

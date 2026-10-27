@@ -54,7 +54,7 @@ class PostRunTests(unittest.TestCase):
         self.original_state = (self.directory / "task_state.json").read_bytes()
 
     def write_events(self, events):
-        (self.directory / "events.jsonl").write_text("\n".join(dumps(e) for e in events) + "\n")
+        (self.directory / "events.jsonl").write_text("\n".join(dumps(e) for e in events) + "\n", encoding="utf-8")
 
     def assistant(self):
         return ToUser(self.root, {"post_run": {"chunk_turns": 2}}, output_fn=lambda _: None,
@@ -144,7 +144,7 @@ class PostRunTests(unittest.TestCase):
         self.assertNotIn('sources', dumps(loaded))
         self.assertEqual(Experience(self.root).context('detector', {"task_state": self.state}), [])
         for role in ('planner', 'detector'):
-            self.assertNotIn('evidence', (self.root / ROLE_MEMORY_PATHS[role]).read_text())
+            self.assertNotIn('evidence', (self.root / ROLE_MEMORY_PATHS[role]).read_text(encoding="utf-8"))
         with self.assertRaises(ValueError):
             Experience(self.root).merge([long], self.scope, {"run": "logs/b", "events_sha256": "b"})
 
@@ -238,7 +238,7 @@ class PostRunTests(unittest.TestCase):
         result = self.assistant().review_run(self.directory, model={'model': 'test'}, client=client)
         self.assertEqual(result['status'], 'applied')
         self.assertIn('scope, roles, confidence', client.calls[-1][-1]['content'])
-        saved = loads((self.root / ROLE_MEMORY_PATHS['planner']).read_text())[0]
+        saved = loads((self.root / ROLE_MEMORY_PATHS['planner']).read_text(encoding="utf-8"))[0]
         self.assertEqual(saved['priority'], 'critical')
         self.assertEqual(saved['scope']['suite'], '*')
 
@@ -367,7 +367,7 @@ class PostRunTests(unittest.TestCase):
         ranges = [sorted({e["turn"] for e in loads(c[1]["content"][0]["text"])["events"]
                            if e["event"] == "detector"}) for c in client.calls[1:-1]]
         self.assertEqual(ranges, [[1], [2], [3]])
-        self.assertTrue(loads((self.directory / "review/chunk-001.json").read_text())["split"])
+        self.assertTrue(loads((self.directory / "review/chunk-001.json").read_text(encoding="utf-8"))["split"])
 
     def test_repeat_review_is_idempotent_and_new_diagnostics_invalidate_cache(self):
         result = self.assistant().review_run(self.directory, model={"model": "test"}, client=Client(review([finding()]), review([finding()])))
@@ -391,7 +391,7 @@ class PostRunTests(unittest.TestCase):
         self.assertEqual(result["status"], "applied")
         for call in client.calls:
             self.assertEqual(loads(call[1]["content"][0]["text"])["user_feedback"], feedback)
-        self.assertIn(updated["lesson"], (self.root / ROLE_MEMORY_PATHS["planner"]).read_text())
+        self.assertIn(updated["lesson"], (self.root / ROLE_MEMORY_PATHS["planner"]).read_text(encoding="utf-8"))
         sources = Experience(self.root).read()["lessons"][0]["sources"]
         self.assertEqual(sources[-1]["user_feedback"], feedback)
         self.assertEqual(len(sources), 2)
@@ -428,7 +428,7 @@ class PostRunTests(unittest.TestCase):
             code = analyzer_main(["--root", str(self.root), "--config", "config.json",
                                   "--run-dir", str(self.directory), "--feedback", "Inspect placement bias."])
         self.assertEqual(code, 0)
-        run.assert_called_once_with(self.directory, force=False, feedback="Inspect placement bias.")
+        run.assert_called_once_with(self.directory.resolve(), force=False, feedback="Inspect placement bias.")
 
     def test_completed_review_restores_deleted_role_files_without_model_requests(self):
         result = self.assistant().review_run(self.directory, model={"model": "test"},
@@ -457,7 +457,7 @@ class PostRunTests(unittest.TestCase):
         (self.root / ROLE_MEMORY_PATHS['planner']).unlink()
         result = self.assistant().review_run(self.directory, model={"model": "test"}, client=Client())
         self.assertEqual(result['restored_files'], [ROLE_MEMORY_PATHS['planner']])
-        self.assertIn(new['lesson'], (self.root / ROLE_MEMORY_PATHS['planner']).read_text())
+        self.assertIn(new['lesson'], (self.root / ROLE_MEMORY_PATHS['planner']).read_text(encoding="utf-8"))
         self.assertEqual(detector.read_bytes(), existing)
 
     def test_missing_archive_and_role_files_are_rebuilt_from_completed_short_review(self):
@@ -503,7 +503,7 @@ class PostRunTests(unittest.TestCase):
                         review(), review(), review(), review(), review([finding()]))
         result = assistant.review_run(self.directory, model={"model": "test"}, client=client)
         self.assertEqual(result["status"], "applied")
-        cache = loads((self.directory / 'review/synthesis-01-001.json').read_text())
+        cache = loads((self.directory / 'review/synthesis-01-001.json').read_text(encoding="utf-8"))
         self.assertTrue(cache['split'])
         self.assertEqual(len(client.calls), 12)
 
@@ -547,7 +547,7 @@ class PostRunTests(unittest.TestCase):
             result = self.assistant().review_run(self.directory, model={"model": "test"}, client=client)
         self.assertEqual(result["status"], "busy")
         self.assertEqual(client.calls, [])
-        self.assertEqual(loads((self.directory / "review/report.json").read_text()), original)
+        self.assertEqual(loads((self.directory / "review/report.json").read_text(encoding="utf-8")), original)
 
     def test_libero_batch_reviews_after_closing_and_saves_score_first(self):
         from types import SimpleNamespace
@@ -564,7 +564,7 @@ class PostRunTests(unittest.TestCase):
         def assess(root, directory, config, **kwargs):
             self.assertTrue(env.closed)
             self.assertTrue((directory / "result.json").is_file())
-            self.assertEqual(loads((directory.parent / "summary.json").read_text())["successes"], 1)
+            self.assertEqual(loads((directory.parent / "summary.json").read_text(encoding="utf-8"))["successes"], 1)
             return {"status": "failed", "error": "review unavailable"}
         output = self.root / "logs/batch"
         with patch("pac_harness.libero_eval.load_suite", return_value=SimpleNamespace(n_tasks=1)), patch(
@@ -575,7 +575,7 @@ class PostRunTests(unittest.TestCase):
             code = main(["--root", str(self.root), "--config", "config.json", "--task-ids", "0",
                          "--episodes", "1", "--output", str(output)])
         self.assertEqual(code, 0)
-        summary = loads((output / "summary.json").read_text())
+        summary = loads((output / "summary.json").read_text(encoding="utf-8"))
         self.assertEqual(summary["success_rate"], 1)
         self.assertEqual(summary["results"][0]["post_run_review"]["status"], "failed")
 
@@ -584,7 +584,7 @@ class PostRunTests(unittest.TestCase):
         client = Client(review(), review())
         self.assistant().review_run(self.directory, model={"model": "test"}, client=client)
         self.assertNotIn("secret-value", dumps(client.calls))
-        self.assertNotIn("private-token", (self.directory / "review/input.json").read_text())
+        self.assertNotIn("private-token", (self.directory / "review/input.json").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

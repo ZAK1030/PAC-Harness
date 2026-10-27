@@ -34,7 +34,7 @@ def fetch(url):
 
 def task_map(repo):
     path = Path(repo) / "libero/libero/benchmark/libero_suite_task_map.py"
-    for node in ast.parse(path.read_text()).body:
+    for node in ast.parse(path.read_text(encoding="utf-8")).body:
         if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "libero_task_map" for t in node.targets):
             return ast.literal_eval(node.value)
     raise ValueError(f"No task map found in {path}")

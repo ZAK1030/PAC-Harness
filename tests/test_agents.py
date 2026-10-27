@@ -64,7 +64,7 @@ class AgentTests(unittest.TestCase):
         self.assertNotIn(encoded, self.journal.path.read_text(encoding="utf-8"))
 
     def test_unlisted_artifact_is_not_read(self):
-        (self.root / "private.txt").write_text("private")
+        (self.root / "private.txt").write_text("private", encoding="utf-8")
         with self.assertRaises(ValueError):
             inspect_artifact(self.root, "private.txt", [])
 
@@ -292,7 +292,7 @@ class ResponseRecoveryTests(unittest.TestCase):
             last = loads(self.requests[-1].data)['input']
             self.assertIn('"value": 42', str(last))
             self.assertIn('could not be decoded', last[-1]['content'])
-            events = [loads(line) for line in journal.path.read_text().splitlines()]
+            events = [loads(line) for line in journal.path.read_text(encoding="utf-8").splitlines()]
             self.assertTrue(any(e['event']=='format_repair' for e in events))
             error = next(e for e in events if e['event']=='model_error')
             self.assertEqual(error['diagnostics']['stage'], 'model_output')

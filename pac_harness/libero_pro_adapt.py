@@ -77,8 +77,8 @@ def summarize(directory, plan, *, status, current=None, error=None):
     records = []
     for item in plan["episodes"]:
         episode = directory / item["episode_dir"]
-        result = loads((episode / "result.json").read_text()) if (episode / "result.json").exists() else None
-        review = loads((episode / "review/report.json").read_text()) if (episode / "review/report.json").exists() else None
+        result = loads((episode / "result.json").read_text(encoding="utf-8")) if (episode / "result.json").exists() else None
+        review = loads((episode / "review/report.json").read_text(encoding="utf-8")) if (episode / "review/report.json").exists() else None
         finished = bool(result and result["runtime"]["status"] not in {"interrupted", "restart_required"})
         reviewed = bool(finished and review and review.get("status") in {"applied", "no_change"})
         records.append({**item, "experiment_finished": finished,
@@ -113,8 +113,8 @@ def run_curriculum(root, directory, plan, *, attempts=5, retry_delay_s=30):
     try:
         for item in plan["episodes"]:
             episode = directory / item["episode_dir"]
-            cached_result = loads((episode / "result.json").read_text()) if (episode / "result.json").exists() else None
-            cached_review = loads((episode / "review/report.json").read_text()) if (episode / "review/report.json").exists() else None
+            cached_result = loads((episode / "result.json").read_text(encoding="utf-8")) if (episode / "result.json").exists() else None
+            cached_review = loads((episode / "review/report.json").read_text(encoding="utf-8")) if (episode / "review/report.json").exists() else None
             if (cached_result and cached_result["runtime"]["status"] not in {"interrupted", "restart_required"}
                     and cached_review and cached_review.get("status") in {"applied", "no_change"}):
                 print(f'Adaptation: preserving completed experiment and review {item["index"]}/30', flush=True)
@@ -144,7 +144,7 @@ def run_curriculum(root, directory, plan, *, attempts=5, retry_delay_s=30):
                     code = subprocess.run(call, cwd=root, stdout=stream, stderr=subprocess.STDOUT).returncode
                 if code:
                     raise RuntimeError(f"Experiment exited {code}: {log}")
-                result = loads((episode / "result.json").read_text())
+                result = loads((episode / "result.json").read_text(encoding="utf-8"))
                 if result["runtime"]["status"] in {"interrupted", "restart_required"}:
                     raise RuntimeError(f"Experiment needs recovery: {episode}")
                 print(f'Adaptation result: {label} success={result["success"]} '
@@ -155,7 +155,7 @@ def run_curriculum(root, directory, plan, *, attempts=5, retry_delay_s=30):
             for attempt in range(attempts):
                 with log.open("a") as stream:
                     code = subprocess.run(review_call, cwd=root, stdout=stream, stderr=subprocess.STDOUT).returncode
-                report = loads((episode / "review/report.json").read_text()) if (episode / "review/report.json").exists() else {}
+                report = loads((episode / "review/report.json").read_text(encoding="utf-8")) if (episode / "review/report.json").exists() else {}
                 if code == 0 and report.get("status") in {"applied", "no_change"}:
                     break
                 if not _retryable_review(report):
@@ -202,7 +202,7 @@ def main(argv=None):
     if not args.resume:
         benchmark = preflight(root, list(PRO_SUITES), list(range(10)), [0, 1, 2])
         seed = args.sampling_seed if args.sampling_seed is not None else secrets.randbits(32)
-        config = loads((root / args.config).read_text())
+        config = loads((root / args.config).read_text(encoding="utf-8"))
         config["analyzer"] = {**config.get("analyzer", {}), "enabled": True}
         config["to_user"] = {**config.get("to_user", {}), "enabled": False}
         plan = {"mode": "adaptation", "sampling_seed": seed, "simulator_seed": 0,
@@ -218,7 +218,7 @@ def main(argv=None):
         (directory / "selection.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
         summarize(directory, plan, status="planned")
     else:
-        plan = loads((directory / "plan.json").read_text())
+        plan = loads((directory / "plan.json").read_text(encoding="utf-8"))
         validate_episodes(plan["episodes"])
     print(f'Adaptation directory: {directory}; sampling seed: {plan["sampling_seed"]}', flush=True)
     if args.plan_only:

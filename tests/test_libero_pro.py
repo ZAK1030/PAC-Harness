@@ -31,7 +31,7 @@ class LiberoProTests(unittest.TestCase):
             self.assertEqual(s["expected"], 180)
             self.assertIsNone(s["success_rate"])
             self.assertIsNone(s["groups"][PRO_SUITES[0]]["success_rate"])
-            self.assertNotIn("100.0", (p / "table.csv").read_text())
+            self.assertNotIn("100.0", (p / "table.csv").read_text(encoding="utf-8"))
 
     def test_six_column_order_and_full_denominator(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -44,11 +44,11 @@ class LiberoProTests(unittest.TestCase):
             self.assertTrue(s["full_180_protocol"])
             self.assertEqual(s["successes"], 139)
             self.assertAlmostEqual(s["success_rate"], 139 / 180)
-            self.assertIn("test,80.0,93.3,70.0,56.7,73.3,90.0,77.2", (p / "table.csv").read_text())
+            self.assertIn("test,80.0,93.3,70.0,56.7,73.3,90.0,77.2", (p / "table.csv").read_text(encoding="utf-8"))
             # Identical artifacts cannot be turned into a model score in smoke mode.
             s = summarize(p, self.protocol("smoke"))
             self.assertIsNone(s["success_rate"])
-            self.assertNotIn("77.2", (p / "table.csv").read_text())
+            self.assertNotIn("77.2", (p / "table.csv").read_text(encoding="utf-8"))
 
     def test_sixty_single_state_configurations_have_their_own_average(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -63,11 +63,11 @@ class LiberoProTests(unittest.TestCase):
             self.assertEqual(s["success_rate"], 0.75)
             self.assertIsNone(s["k1_case_scope"])
             self.assertFalse(s["full_180_protocol"])
-            self.assertEqual((p / "table.csv").read_text().splitlines()[1].split(",")[-1], "75.0")
+            self.assertEqual((p / "table.csv").read_text(encoding="utf-8").splitlines()[1].split(",")[-1], "75.0")
             self.write_result(p, PRO_SUITES[0], 0, 0, False, "interrupted")
             s = summarize(p, protocol)
             self.assertIsNone(s["success_rate"])
-            self.assertEqual((p / "table.csv").read_text().splitlines()[1].split(",")[-1], "—")
+            self.assertEqual((p / "table.csv").read_text(encoding="utf-8").splitlines()[1].split(",")[-1], "—")
 
     def test_explicit_stored_state_ids_and_resume_identity(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -95,7 +95,7 @@ class LiberoProTests(unittest.TestCase):
                 self.assertEqual(configs, [])
                 with patch("sys.stderr"), self.assertRaises(SystemExit):
                     evaluate(["--root", str(root), "--resume", "batch", "--init-state-ids", "0", "1"])
-            s = loads((root / "batch/summary.json").read_text())
+            s = loads((root / "batch/summary.json").read_text(encoding="utf-8"))
             self.assertEqual(s["init_state_ids"], [2, 7])
             self.assertTrue((root / "batch/task-000-episode-007/result.json").exists())
 
@@ -111,11 +111,11 @@ class LiberoProTests(unittest.TestCase):
             self.assertEqual(s["successes"], 16)
             self.assertEqual(s["k1_case_scope"], "k1-18")
             self.assertFalse(s["full_180_protocol"])
-            self.assertIn("88.9", (p / "table.csv").read_text())
+            self.assertIn("88.9", (p / "table.csv").read_text(encoding="utf-8"))
             (p / PRO_SUITES[0] / "task-000-episode-000/result.json").unlink()
             s = summarize(p, protocol)
             self.assertIsNone(s["success_rate"])
-            self.assertEqual((p / "table.csv").read_text().splitlines()[1].split(",")[-1], "—")
+            self.assertEqual((p / "table.csv").read_text(encoding="utf-8").splitlines()[1].split(",")[-1], "—")
 
     def test_named_k1_profiles_freeze_cases_and_reject_incompatible_options(self):
         for name, tasks, states in (("k1-18", [0, 1, 2], [0]),
@@ -140,7 +140,7 @@ class LiberoProTests(unittest.TestCase):
             with patch("pac_harness.libero_pro.preflight", return_value={"pinned": True}), patch(
                     "pac_harness.libero_eval.main", return_value=0), patch("builtins.print"):
                 self.assertEqual(evaluate_pro(["--root", str(root), "--protocol", "k1-18", "--output", "batch"]), 0)
-                saved = loads((root / "batch/protocol.json").read_text())
+                saved = loads((root / "batch/protocol.json").read_text(encoding="utf-8"))
                 self.assertEqual(saved["comparison"]["profile"], "k1-18")
                 self.assertFalse(saved["post_run_review"])
                 self.assertEqual(evaluate_pro(["--root", str(root), "--protocol", "k1-18", "--resume", "batch"]), 0)
@@ -168,15 +168,15 @@ class LiberoProTests(unittest.TestCase):
                 self.assertEqual(evaluate_pro(["--root", str(root), "--suite", PRO_SUITES[0],
                                               "--task-ids", "0", "--init-state-ids", "2",
                                               "--output", "batch"]), 0)
-                saved = loads((root / "batch/protocol.json").read_text())
+                saved = loads((root / "batch/protocol.json").read_text(encoding="utf-8"))
                 self.assertEqual(saved["init_state_ids"], [2])
                 self.assertFalse(saved["post_run_review"])
                 self.assertEqual(saved["detector"], "model")
                 self.assertIn("--no-post-run-review", calls[0])
-                self.assertFalse(loads((root / "batch/config.json").read_text())["analyzer"]["enabled"])
+                self.assertFalse(loads((root / "batch/config.json").read_text(encoding="utf-8"))["analyzer"]["enabled"])
                 self.assertEqual(evaluate_pro(["--root", str(root), "--resume", "batch"]), 0)
                 self.assertIn("--resume", calls[1])
-                self.assertFalse(loads((root / "batch/summary.json").read_text())["full_180_protocol"])
+                self.assertFalse(loads((root / "batch/summary.json").read_text(encoding="utf-8"))["full_180_protocol"])
                 write_json(root / "memories/changed.json", {})
                 with patch("sys.stderr"), self.assertRaises(SystemExit):
                     evaluate_pro(["--root", str(root), "--resume", "batch"])
@@ -193,7 +193,7 @@ class LiberoProTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "renderer failed"):
                     evaluate(["--root", str(root), "--config", "config.json", "--suite", PRO_SUITES[0],
                               "--task-ids", "0", "--init-state-ids", "2", "--output", str(root / "batch")])
-                saved = loads((root / "batch/summary.json").read_text())
+                saved = loads((root / "batch/summary.json").read_text(encoding="utf-8"))
                 self.assertEqual(saved["episodes"], 0)
                 self.assertEqual(saved["init_state_ids"], [2])
 

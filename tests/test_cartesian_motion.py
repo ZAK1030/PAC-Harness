@@ -126,7 +126,7 @@ class CartesianTests(unittest.TestCase):
         snapshot = self.env.observe()
         original = self.env.candidate(calibrated(snapshot), snapshot)
         path = Path(self.env.grounder.config['extrinsics_path'])
-        calibration = loads(path.read_text())
+        calibration = loads(path.read_text(encoding="utf-8"))
         calibration['cameras']['overview']['T_robot_base_from_camera'][3] = .02
         write_json(path, calibration)
         updated = self.env.candidate(calibrated(snapshot), snapshot)

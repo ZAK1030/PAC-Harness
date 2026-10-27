@@ -138,7 +138,7 @@ class LiberoTests(unittest.TestCase):
             self.assertTrue(all(x['max_steps'] == 500 and x['seed'] == 4 for x in settings))
             self.assertEqual([c.kwargs['resume'] for c in run.call_args_list], [True, False])
             self.assertEqual((output / 'task-000-episode-000/result.json').read_bytes(), original)
-            summary = loads((output / 'summary.json').read_text())
+            summary = loads((output / 'summary.json').read_text(encoding="utf-8"))
             self.assertEqual(summary['episodes'], 3)
             self.assertEqual(summary['successes'], 3)
             self.assertEqual([x['task_id'] for x in summary['results']], [0, 1, 2])

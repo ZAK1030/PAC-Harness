@@ -52,7 +52,7 @@ def preflight(root, suites, task_ids, initials):
     from libero.libero import get_libero_path
     from libero.libero.envs.bddl_utils import get_problem_info
     data = Path(get_libero_path("init_states")).parent
-    manifest = loads((data / "manifest.json").read_text())
+    manifest = loads((data / "manifest.json").read_text(encoding="utf-8"))
     if manifest["source_revision"] != SOURCE_REVISION or manifest["dataset_revision"] != DATASET_REVISION:
         raise ValueError("LIBERO-Pro data revision mismatch; rerun scripts/setup_libero_pro.sh")
     expected = {item["path"]: item["sha256"] for item in manifest["files"]}
@@ -95,7 +95,7 @@ def summarize(directory, protocol):
                 path = directory / suite / f"task-{task_id:03d}-episode-{initial:03d}/result.json"
                 if not path.exists():
                     continue
-                record = loads(path.read_text())
+                record = loads(path.read_text(encoding="utf-8"))
                 if (record["task_id"] != task_id or record.get("init_state_id", initial) != initial):
                     raise ValueError(f"Result identity mismatch: {path}")
                 if record["runtime"]["status"] in {"interrupted", "restart_required"}:
@@ -194,7 +194,7 @@ def main(argv=None):
 
     if args.summarize:
         directory = local(args.summarize)
-        saved = loads((directory / "protocol.json").read_text())
+        saved = loads((directory / "protocol.json").read_text(encoding="utf-8"))
         if args.protocol and comparison_scope(saved) != args.protocol:
             parser.error("Saved batch protocol mismatch: --protocol")
         result = summarize(directory, saved)
@@ -205,7 +205,7 @@ def main(argv=None):
     testing = args.smoke or args.smoke_motion
     if args.resume:
         directory = local(args.resume)
-        protocol = loads((directory / "protocol.json").read_text())
+        protocol = loads((directory / "protocol.json").read_text(encoding="utf-8"))
         if args.protocol and comparison_scope(protocol) != args.protocol:
             parser.error("Resume protocol mismatch: --protocol")
         if protocol["mode"] != "evaluation":
@@ -217,13 +217,13 @@ def main(argv=None):
         for key, value in overrides.items():
             if value is not None and value != protocol[key]:
                 parser.error(f"Resume protocol mismatch: {key}")
-        config = loads((directory / "config.json").read_text())
+        config = loads((directory / "config.json").read_text(encoding="utf-8"))
         if args.max_steps is not None and args.max_steps != config["adapter"]["settings"]["max_steps"]:
             parser.error("Resume protocol mismatch: max_steps")
         if not protocol["post_run_review"] and knowledge_hashes(root) != protocol["knowledge_sha256"]:
             parser.error("Knowledge changed since this fixed-policy batch started; restore the recorded files or start a new batch")
     else:
-        config = loads(local(args.config).read_text())
+        config = loads(local(args.config).read_text(encoding="utf-8"))
         if args.max_steps is not None:
             config["adapter"]["settings"]["max_steps"] = args.max_steps
         suites = args.suites or list(PRO_SUITES)

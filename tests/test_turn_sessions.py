@@ -38,7 +38,7 @@ class TurnSessionTests(unittest.TestCase):
             result = Harness(root, env, DemoPlanner(), Agent('detector', client, Knowledge(root)),
                 identity={}, output=lambda _: None).run('sort', root/'run', max_turns=1)
             self.assertEqual(result['status'], 'budget_exhausted')
-            events = [loads(line) for line in (root/'run/events.jsonl').read_text().splitlines()]
+            events = [loads(line) for line in (root/'run/events.jsonl').read_text(encoding="utf-8").splitlines()]
             self.assertEqual(sum(e['event']=='action_result' for e in events), 1)
             self.assertEqual(sum(e['event']=='turn_completed' for e in events), 1)
             repair = next(e for e in events if e['event']=='format_repair')
@@ -62,7 +62,7 @@ class TurnSessionTests(unittest.TestCase):
             result = Harness(root, env, Agent('planner', client, Knowledge(root)), DemoDetector(),
                 identity={}, output=lambda _: None).run('sort', root/'run', max_turns=1)
             self.assertEqual(result['status'], 'budget_exhausted')
-            events = [loads(line) for line in (root/'run/events.jsonl').read_text().splitlines()]
+            events = [loads(line) for line in (root/'run/events.jsonl').read_text(encoding="utf-8").splitlines()]
             self.assertEqual(sum(e['event']=='action_pending' for e in events), 1)
             self.assertEqual(sum(e['event']=='action_result' for e in events), 1)
             self.assertFalse(any(e['event']=='retry' for e in events))
@@ -143,4 +143,4 @@ class TurnSessionTests(unittest.TestCase):
             journal.turn = 18
             journal.event('tool')
             self.assertTrue(journal.path.read_bytes().startswith(old))
-            self.assertEqual(loads(journal.path.read_text().splitlines()[-1])['turn'], 18)
+            self.assertEqual(loads(journal.path.read_text(encoding="utf-8").splitlines()[-1])['turn'], 18)

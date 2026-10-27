@@ -52,7 +52,7 @@ class LiberoProAdaptTests(unittest.TestCase):
                     # Exercise the real Analyzer config-path contract, rather
                     # than allowing the mocked process to accept any path.
                     from pac_harness.storage import confined
-                    self.assertEqual(loads(confined(root, config_arg).read_text()), {})
+                    self.assertEqual(loads(confined(root, config_arg).read_text(encoding="utf-8")), {})
                     target = Path(call[call.index("--run-dir") + 1])
                     write_json(target / "review/report.json", {"status": "applied", "lesson_keys": ["rule"]})
                     order.append("review")
@@ -64,7 +64,7 @@ class LiberoProAdaptTests(unittest.TestCase):
                 self.assertEqual(order, ["experiment", "review"] * 30)
                 self.assertEqual(run_curriculum(root, directory, plan), 0)
                 self.assertEqual(len(order), 60)
-            status = loads((directory / "status.json").read_text())
+            status = loads((directory / "status.json").read_text(encoding="utf-8"))
             self.assertEqual(status["reviews_completed"], 30)
             self.assertEqual(status["status"], "completed")
             self.assertTrue((directory / "knowledge-final/sha256.json").exists())
@@ -96,7 +96,7 @@ class LiberoProAdaptTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "Analyzer incomplete"):
                     run_curriculum(root, directory, plan)
             self.assertEqual(len(calls), 6)
-            status = loads((directory / "status.json").read_text())
+            status = loads((directory / "status.json").read_text(encoding="utf-8"))
             self.assertEqual(status["experiments_finished"], 1)
             self.assertEqual(status["reviews_completed"], 0)
             self.assertEqual(status["status"], "failed")

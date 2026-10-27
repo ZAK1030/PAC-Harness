@@ -223,9 +223,9 @@ def collect_run(root, directory):
                                  "scope": "offline debug evidence, not policy sensing"}))
             supplemental_index += 1
     result_path = directory / "result.json"
-    result = loads(result_path.read_text()) if result_path.exists() else {"status": state["phase"]}
+    result = loads(result_path.read_text(encoding="utf-8")) if result_path.exists() else {"status": state["phase"]}
     if not result_path.exists() and (directory.parent / "summary.json").is_file():
-        summary = loads((directory.parent / "summary.json").read_text())
+        summary = loads((directory.parent / "summary.json").read_text(encoding="utf-8"))
         settings = state.get("identity", {}).get("adapter", {}).get("settings", {})
         result = next((item for item in summary.get("results", [])
             if item.get("task_id") == settings.get("task_id")
@@ -343,7 +343,7 @@ class Analyzer:
                                        if data["user_feedback"] else None)
             report_path = review_dir / "report.json"
             if report_path.exists() and not force:
-                previous = loads(report_path.read_text())
+                previous = loads(report_path.read_text(encoding="utf-8"))
                 if (previous.get("evidence_sha256") == data["evidence_sha256"]
                         and previous.get("feedback_sha256") == data["feedback_sha256"] and previous.get("review")
                         and (previous.get("status") in {"applied", "no_change"}
@@ -403,7 +403,7 @@ class Analyzer:
                     if earlier:
                         frames.insert(0, max(earlier, key=lambda v: v["turn"]))
                     cache_key = _cache_key(data, self.model, selected)
-                    cached = loads(path.read_text()) if path.exists() and not force else {}
+                    cached = loads(path.read_text(encoding="utf-8")) if path.exists() and not force else {}
                     split = cached.get("cache_key") == cache_key and cached.get("split")
                     if cached.get("cache_key") == cache_key and not split:
                         reply = validate_review(cached["review"], events, data["scope"]["task"])
@@ -439,7 +439,7 @@ class Analyzer:
 
                 def consolidate(reviews, path, *, allow_split=True):
                     key = _cache_key(data, self.model, reviews, existing)
-                    cached = loads(path.read_text()) if path.exists() and not force else {}
+                    cached = loads(path.read_text(encoding="utf-8")) if path.exists() and not force else {}
                     split = cached.get("cache_key") == key and cached.get("split")
                     if cached.get("cache_key") == key and not split:
                         reply = validate_review(cached["review"], data["events"], data["scope"]["task"])
@@ -507,7 +507,7 @@ class Analyzer:
         if any(len(compact_rule(item)) > 300 or not english_advice(item) for item in final["findings"]):
             key = _cache_key(data, self.model, final, "role_rules_en_v2")
             path = review_dir / "short-memory.json"
-            cached = loads(path.read_text()) if path.exists() and not force else {}
+            cached = loads(path.read_text(encoding="utf-8")) if path.exists() and not force else {}
             if cached.get("cache_key") == key:
                 short = validate_review(cached["review"], data["events"], data["scope"]["task"])
             else:
@@ -573,7 +573,7 @@ def main(argv=None):
         except ValueError as exc:
             parser.error(str(exc))
     root = Path(args.root).resolve()
-    config = loads(confined(root, args.config).read_text())
+    config = loads(confined(root, args.config).read_text(encoding="utf-8"))
     settings = config.get("analyzer", config.get("to_user", {}).get("post_run", {}))
     assistant = Analyzer(root, settings, {**config["models"]["planner"], **settings.get("model", {})})
     if args.consolidate_memory:

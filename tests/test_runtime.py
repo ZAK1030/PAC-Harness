@@ -96,7 +96,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(result["status"], "episode_exhausted")
         self.assertEqual(environment.calls, 1)
         self.assertEqual(detector.calls, 2)
-        state = loads((self.run / "task_state.json").read_text())
+        state = loads((self.run / "task_state.json").read_text(encoding="utf-8"))
         self.assertEqual(state["phase"], "ready")
         self.assertIsNotNone(state["detector"])
 
@@ -122,7 +122,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(result['turns'], 1)
         self.assertEqual(environment.calls, 1)
         self.assertEqual(detector.calls, 1)
-        state = loads((self.run / 'task_state.json').read_text())
+        state = loads((self.run / 'task_state.json').read_text(encoding="utf-8"))
         self.assertEqual(state['phase'], 'completed')
         self.assertFalse(state['turn_open'])
         self.assertFalse(state['detector']['task_complete'])
