@@ -22,8 +22,8 @@ class Workbench:
         self.sessions = {}
         self.lock = threading.RLock()
 
-    def _save(self, session):
-        write_json(session["path"], session["view"])
+    def _save(self, session, *, view=None):
+        write_json(session["path"], session["view"] if view is None else view)
 
     def start(self, message):
         root = self.root
@@ -77,22 +77,24 @@ class Workbench:
                 session["view"]["messages"].append({"role": "assistant", "content": redact(str(message))})
                 self._save(session)
 
+        result, status = None, "error"
         try:
             with RunLock(confined(root, "maintenance/web-active")):
                 config = loads(confined(root, "config.json").read_text(encoding="utf-8"))
                 context = {"task": "当前项目协助。澄清需求，将确认知识写入 memories/skills，实现适配器与离线测试，说明配置步骤。此会话未绑定业务任务。"}
                 assistant = self.assistant_factory(root, config.get("to_user"), input_fn=read, output_fn=output)
                 result = assistant.run(context)
-                with self.lock:
-                    session["view"]["result"] = redact(result)
-                    session["view"]["status"] = "finished"
+                status = "finished"
         except Exception as exc:
             output(str(exc))
-            with self.lock:
-                session["view"]["status"] = "error"
         finally:
             with self.lock:
-                self._save(session)
+                # Publish terminal state only after the final write and project
+                # lock release. Consumers may stop watching or remove the run as
+                # soon as they see it; no worker file I/O may follow publication.
+                final = {**session["view"], "result": redact(result), "status": status}
+                self._save(session, view=final)
+                session["view"] = final
 
     def history(self):
         root = self.root

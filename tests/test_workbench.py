@@ -3,6 +3,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 import json
@@ -66,6 +67,27 @@ class WorkbenchTests(unittest.TestCase):
             sid = self.app.start("hello")["id"]
             self.until(sid, "error")
         self.assertIn("already in use", self.app.history()[0]["messages"][-1]["content"])
+
+    def test_terminal_state_is_published_after_final_save(self):
+        sid = self.app.start("hello")["id"]
+        self.until(sid, "waiting")
+        saving, release = threading.Event(), threading.Event()
+        def controlled_write(path, value):
+            if path == self.app.sessions[sid]["path"] and value.get("status") == "finished":
+                saving.set()
+                if not release.wait(2):
+                    raise TimeoutError("Test did not release final write")
+            write_json(path, value)
+        with patch("pac_harness.workbench.write_json", side_effect=controlled_write):
+            self.app.close(sid)
+            try:
+                self.assertTrue(saving.wait(2))
+                self.assertEqual(self.app.sessions[sid]["view"]["status"], "closing")
+            finally:
+                release.set()
+            self.until(sid, "finished")
+        saved = json.loads(self.app.sessions[sid]["path"].read_text(encoding="utf-8"))
+        self.assertEqual(saved["status"], "finished")
 
     def test_real_to_user_pipeline_applies_and_exposes_audit(self):
         from pac_harness.to_user import ToUser
