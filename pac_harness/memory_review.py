@@ -10,32 +10,24 @@ from .redaction import redact
 from .storage import Journal, RunLock, confined, dumps, loads, write_json
 
 
-CONSOLIDATION_INSTRUCTION = """Review the accumulated lesson catalog against the
-operator's priorities. Return at most FOUR focused reusable findings, possibly
-fewer. Each combined condition+lesson+verification+recheck_when must fit 300
-characters in complete English clauses. Do not mechanically truncate text.
-Each finding must explicitly set priority and applicability. Use adapter
-applicability for these object/operation procedures and short object keywords;
-Set keyword_match any when listing alternative objects or destinations. With
-all, every keyword must co-occur in a real source instruction. Empty keywords
-with all are appropriate for a general placement/contact procedure whose
-condition states exactly when to apply it.
-do not carry a source suite's layout, pixel, height or coordinate assumption
-across tasks. Distinguish grasping an object from using it as a destination.
-Critical rules must state a concrete preventive action and an observable test.
-Give Detector explicit deviations to report promptly, rather than only warnings
-to verify later. For plate lifting, record the demonstrated limitation or
-missing evidence; leave untested successful-grasp claims as hypothesis.
-The catalog's existing rule text is advice under review, NOT ground truth.
-Evidence excerpts have been checked against original events. They retain their
-run and original event indices; use the supplied global event_index for citations.
-Use supersedes to consolidate covered duplicate or conflicting catalog keys.
-Only retire rules whose useful procedures and exceptions the replacement covers;
-do not retire unrelated rules merely to reduce file length. Hypotheses cannot
-retire supported advice. Reuse a stable existing ID when the procedure is the
-same. Do not add generic protocol reminders or dilute operator priorities.
-code_suggestions may identify remaining gaps but must not claim implementation.
-This is a text-evidence consolidation, not a new visual review or robot test.
+CONSOLIDATION_INSTRUCTION = """Consolidate the evidence-linked lesson catalog
+against the operator's priorities. Return at most four focused reusable
+findings, possibly none. Each combined condition, lesson, verification and
+recheck_when must fit 300 characters in complete English clauses.
+Each finding must explicitly set priority and adapter applicability. Use short
+source-task keywords; use keyword_match any for alternatives. With all, every
+keyword must co-occur in a source instruction. Empty keywords are suitable for
+a general procedure whose condition precisely defines applicability.
+Do not transfer configuration, coordinates or live-state assumptions across
+contexts. Distinguish observed successful procedures from untested remedies.
+Critical findings need a concrete preventive action and an observable test.
+Existing rule text is advice under review, not ground truth. Evidence excerpts
+were checked against source events; use supplied global event_index values.
+Use supersedes only for exact catalog keys fully covered by a supported
+replacement for all original roles. Preserve exceptions and unrelated rules.
+Reuse stable IDs for the same procedure. Do not dilute operator priorities
+into generic cautions. code_suggestions identify proposed work, not completed
+implementation. This is text-evidence consolidation, not a new empirical test.
 """
 
 
@@ -143,7 +135,7 @@ def collect_memory(root, adapter=None):
     events = [event for event in events if event["event_index"] in used]
     origins = {str(number): origins[str(number)] for number in used}
     fingerprint = hashlib.sha256(dumps([archive, catalog, events, sorted(set(instructions))]).encode()).hexdigest()
-    return archive, {"scope": {"adapter": adapter, "suite": "*", "task": " | ".join(sorted(set(tasks + instructions)))},
+    return archive, {"scope": {"adapter": adapter, "context": "*", "task": " | ".join(sorted(set(tasks + instructions)))},
         "lesson_catalog": catalog, "events": events, "evidence_origins": origins,
         "task_instructions": sorted(set(instructions)), "evidence_sha256": fingerprint, "omissions": omissions}
 
@@ -178,7 +170,7 @@ def consolidate_memory(assistant, *, feedback, adapter=None, force=False):
                 if draft:
                     validate_review(draft, data['events'], data['scope']['task'])
                     payload['draft_review'] = draft
-                    payload['instruction'] += '\nRepair the supplied draft: retain its evidence-backed intent and citations, fit each complete rule within 300 characters, and correct keyword logic for retrieval. Spell out inside/outside same-wall finger contact when checking a bowl pinch. Do not replace concrete actions with generic warnings.'
+                    payload['instruction'] += '\nRepair the supplied draft: retain its evidence-backed intent and citations, fit each complete rule within 300 characters, and correct keyword logic for retrieval. Preserve the concrete triggering condition, corrective procedure and acceptance test. Do not replace concrete actions with generic warnings.'
                     assistant.output('analyzer: Reusing an unpublished draft; repairing rule length and retrieval conditions')
                     break
             except (OSError, ValueError):

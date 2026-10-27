@@ -19,8 +19,13 @@ class MetricsTests(unittest.TestCase):
     def test_missing_usage_stays_unknown_and_attempt_events_are_counted_once(self):
         with tempfile.TemporaryDirectory() as folder:
             batch = Path(folder)
-            episode = batch/'suite/task-000-episode-000'
+            episode = batch/'project/session/run-a'
             episode.mkdir(parents=True)
+            (episode/'task_state.json').write_text('{"phase": "completed"}', encoding="utf-8")
+            (episode/'result.json').write_text('{"status": "completed"}', encoding="utf-8")
+            review = episode/'review'
+            review.mkdir()
+            (review/'events.jsonl').write_text('{"event": "review_candidate"}\n', encoding="utf-8")
             usage = {'input_tokens': 100, 'output_tokens': 50, 'total_tokens': 150}
             events = [
                 {'time_ns': 1, 'event': 'model_response', 'role': 'planner', 'turn': 1,
@@ -36,6 +41,8 @@ class MetricsTests(unittest.TestCase):
             (episode/'events.jsonl').write_text('\n'.join(json.dumps(e) for e in events)+'\n', encoding="utf-8")
             summary = export_metrics(batch)
             self.assertEqual(summary['observed_attempts'], 2)
+            self.assertEqual(summary['episodes_observed'], 1)
+            self.assertEqual(summary['finished_episodes'], 1)
             self.assertEqual(summary['total_tokens_reported_sum'], 150)
             self.assertEqual(summary['total_tokens_missing_attempts'], 1)
             self.assertIsNone(summary['total_tokens'])

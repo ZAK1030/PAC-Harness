@@ -16,7 +16,7 @@ franka = ["franky-control>=2.0,<3; sys_platform == 'linux'"]
 
 [project.scripts]
 PAC-Harness = "pac_harness.__main__:main"
-PAC-LIBERO = "pac_harness.libero_eval:main"
+PAC-Analyze = "pac_harness.post_run:main"
 
 [tool.setuptools.packages.find]
 include = ["pac_harness*", "examples*", "adapters*"]

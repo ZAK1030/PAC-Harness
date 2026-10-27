@@ -81,7 +81,7 @@ def episode_metrics(directory, relative):
     first = min((e["time_ns"] for e in events), default=None)
     last = max((e["time_ns"] for e in events), default=None)
     row = {"episode": relative, "success": data.get("success"),
-           "status": data.get("runtime", {}).get("status", "running"),
+           "status": data.get("runtime", {}).get("status", data.get("status", "running")),
            "first_event_ns": first, "last_event_ns": last,
            "observed_span_s": (last-first)/1e9 if first is not None else None,
            "measured_session_s": round(sum(s.get("elapsed_s", 0) for s in sessions.values()), 3),
@@ -99,7 +99,11 @@ def export_metrics(batch, output=None):
     output = Path(output).resolve() if output else batch / "metrics"
     output.mkdir(parents=True, exist_ok=True)
     episodes, requests, turns = [], [], []
-    for journal in sorted(batch.glob("*/task-*/events.jsonl")):
+    for journal in sorted(batch.rglob("events.jsonl")):
+        if not (journal.parent / "task_state.json").is_file():
+            continue
+        if output == journal.parent or output in journal.parents:
+            continue
         row, calls, planning = episode_metrics(journal.parent, journal.parent.relative_to(batch).as_posix())
         episodes.append(row)
         requests.extend(calls)

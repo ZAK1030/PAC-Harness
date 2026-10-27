@@ -43,11 +43,11 @@ class PostRunTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
-        self.directory = self.root / "logs/run/task-002-episode-000"
+        self.directory = self.root / "logs/session/run-002"
         self.directory.mkdir(parents=True)
-        self.scope = {"adapter": "adapters.libero:create", "suite": "libero_spatial", "task": "pick up the black bowl"}
+        self.scope = {"adapter": "examples.list_sorting:create", "context": "workspace_a", "task": "pick up the black bowl"}
         self.state = {"task": self.scope["task"], "turn": 1, "phase": "completed", "identity": {"adapter": {
-            "factory": self.scope["adapter"], "settings": {"suite": self.scope["suite"]}}}}
+            "factory": self.scope["adapter"], "settings": {"context": self.scope["context"]}}}}
         write_json(self.directory / "task_state.json", self.state)
         self.event = {"event": "detector", "turn": 1, "report": {"reason": "bowl stayed on table", "facts": {"held": False}}}
         self.write_events([self.event])
@@ -76,7 +76,7 @@ class PostRunTests(unittest.TestCase):
         self.assertEqual((self.directory / "task_state.json").read_bytes(), self.original_state)
         self.assertEqual(len(Knowledge(self.root).context("planner", {"task_state": self.state})["experience"]), 1)
         other = deepcopy(self.state)
-        other["identity"]["adapter"]["settings"]["suite"] = "libero_object"
+        other["identity"]["adapter"]["settings"]["context"] = "workspace_b"
         self.assertEqual(Knowledge(self.root).context("planner", {"task_state": other})["experience"], [])
         other = deepcopy(self.state)
         other["task"] = "open the drawer"
@@ -89,14 +89,14 @@ class PostRunTests(unittest.TestCase):
         for turn in (1, 2, 3):
             path = self.directory / f"frames/turn-{turn:03d}.png"
             path.write_bytes(raw)
-            frames[str(turn)] = {"turn": turn, "sim_steps": turn * 10, "path": path.relative_to(self.root).as_posix()}
+            frames[str(turn)] = {"turn": turn, "steps": turn * 10, "path": path.relative_to(self.root).as_posix()}
         write_json(self.directory / "frames.json", frames)
         self.write_events([dict(self.event, turn=i) for i in (1, 2, 3)])
         client = Client(review(), review(), review())
         self.assistant().review_run(self.directory, model={"model": "test"}, client=client)
         labels = [label for c in client.calls for label in loads(c[1]["content"][0]["text"])["image_order"]]
         self.assertEqual({label["turn"] for label in labels}, {1, 2, 3})
-        self.assertTrue(all(label["sim_steps"] == label["turn"] * 10 for label in labels))
+        self.assertTrue(all(label["steps"] == label["turn"] * 10 for label in labels))
 
     def test_hypothesis_is_saved_but_not_loaded_and_not_downgrades_supported(self):
         memory = Experience(self.root)
@@ -167,7 +167,7 @@ class PostRunTests(unittest.TestCase):
         self.assertEqual(len(loaded), 6)
         self.assertEqual(len({v['id'] for v in loaded}), len(loaded))
         other = deepcopy(self.state)
-        other['identity']['adapter']['settings']['suite'] = 'libero_goal_swap'
+        other['identity']['adapter']['settings']['context'] = 'workspace_c'
         other['task'] = 'put the bowl inside the drawer'
         self.assertEqual([v['id'] for v in memory.context('planner', {'task_state': other})], ['bowl-wall-contact'])
         other['task'] = 'open the drawer'
@@ -233,14 +233,14 @@ class PostRunTests(unittest.TestCase):
         original = dict(finding(), priority='critical', applicability='adapter',
                         task_keywords=['bowl'], lesson='Preserve the concrete contact check. ' * 20)
         short = dict(original, lesson='Inspect contact geometry before closure.')
-        wrong = dict(short, priority='normal', applicability='suite')
+        wrong = dict(short, priority='normal', applicability='context')
         client = Client(review([original]), review([original]), review([wrong]), review([short]))
         result = self.assistant().review_run(self.directory, model={'model': 'test'}, client=client)
         self.assertEqual(result['status'], 'applied')
         self.assertIn('scope, roles, confidence', client.calls[-1][-1]['content'])
         saved = loads((self.root / ROLE_MEMORY_PATHS['planner']).read_text(encoding="utf-8"))[0]
         self.assertEqual(saved['priority'], 'critical')
-        self.assertEqual(saved['scope']['suite'], '*')
+        self.assertEqual(saved['scope']['context'], '*')
 
     def test_alternative_object_keywords_load_without_requiring_impossible_conjunction(self):
         memory = Experience(self.root)
@@ -248,7 +248,7 @@ class PostRunTests(unittest.TestCase):
                     applicability='adapter', priority='critical')
         memory.merge([rule], self.scope, {'run': 'logs/a', 'events_sha256': 'a'})
         other = deepcopy(self.state)
-        other['identity']['adapter']['settings']['suite'] = 'libero_object_task'
+        other['identity']['adapter']['settings']['context'] = 'workspace_b'
         other['task'] = 'pick the salad dressing and place it in the basket'
         self.assertEqual(len(memory.context('planner', {'task_state': other})), 1)
         other['task'] = 'open the drawer'
@@ -549,35 +549,31 @@ class PostRunTests(unittest.TestCase):
         self.assertEqual(client.calls, [])
         self.assertEqual(loads((self.directory / "review/report.json").read_text(encoding="utf-8")), original)
 
-    def test_libero_batch_reviews_after_closing_and_saves_score_first(self):
-        from types import SimpleNamespace
-        from pac_harness.libero_eval import main
-        config = {"adapter": {"factory": "adapters.libero:create", "settings": {}},
+    def test_generic_cli_saves_result_and_closes_adapter_before_review(self):
+        from pac_harness.__main__ import main
+        from examples.list_sorting import ListEnvironment, DemoPlanner, DemoDetector
+        config = {"adapter": {"factory": "examples.list_sorting:create", "settings": {}},
                   "models": {"planner": {"model": "test"}, "detector": {"model": "test"}},
-                  "to_user": {"post_run": {"enabled": True}}}
+                  "to_user": {"enabled": False}, "analyzer": {"enabled": True}}
         write_json(self.root / "config.json", config)
-        env = SimpleNamespace(task=SimpleNamespace(language="pick up the black bowl"), max_steps=220,
-                              data={"success": True, "steps": 100}, closed=False)
-        def run(*args, **kwargs):
+        output = self.root / "logs/generic-run"
+        env = ListEnvironment(output, [3, 1, 2])
+        env.closed = False
+        def close():
             env.closed = True
-            return {"status": "completed", "turns": 8}
+        env.close = close
         def assess(root, directory, config, **kwargs):
             self.assertTrue(env.closed)
-            self.assertTrue((directory / "result.json").is_file())
-            self.assertEqual(loads((directory.parent / "summary.json").read_text(encoding="utf-8"))["successes"], 1)
+            self.assertEqual(loads((directory / "result.json").read_text(encoding="utf-8"))["status"], "completed")
             return {"status": "failed", "error": "review unavailable"}
-        output = self.root / "logs/batch"
-        with patch("pac_harness.libero_eval.load_suite", return_value=SimpleNamespace(n_tasks=1)), patch(
-                "pac_harness.libero_eval.load_init_states", return_value=[0]), patch(
-                "pac_harness.libero_eval.LiberoEnvironment", return_value=env), patch(
-                "pac_harness.libero_eval.Harness.run", side_effect=run), patch(
-                "pac_harness.post_run.maybe_review", side_effect=assess), patch("builtins.print"):
-            code = main(["--root", str(self.root), "--config", "config.json", "--task-ids", "0",
-                         "--episodes", "1", "--output", str(output)])
+        with patch("examples.list_sorting.create", return_value=env), patch(
+                "pac_harness.__main__.ChatClient"), patch(
+                "pac_harness.__main__.Agent", side_effect=[DemoPlanner(), DemoDetector()]), patch(
+                "pac_harness.post_run.maybe_review", side_effect=assess) as review_call, patch("builtins.print"):
+            code = main(["--root", str(self.root), "--config", "config.json",
+                         "--task", "Sort the list", "--run-dir", "logs/generic-run"])
         self.assertEqual(code, 0)
-        summary = loads((output / "summary.json").read_text(encoding="utf-8"))
-        self.assertEqual(summary["success_rate"], 1)
-        self.assertEqual(summary["results"][0]["post_run_review"]["status"], "failed")
+        review_call.assert_called_once()
 
     def test_secrets_are_redacted_in_review_input_and_report(self):
         self.write_events([dict(self.event, error="Bearer private-token", api_key="secret-value")])
@@ -585,6 +581,37 @@ class PostRunTests(unittest.TestCase):
         self.assistant().review_run(self.directory, model={"model": "test"}, client=client)
         self.assertNotIn("secret-value", dumps(client.calls))
         self.assertNotIn("private-token", (self.directory / "review/input.json").read_text(encoding="utf-8"))
+
+    def test_cli_discovers_generic_nested_runs(self):
+        write_json(self.root / "config.json", {"models": {"planner": {"model": "test"}}})
+        with patch("pac_harness.post_run.Analyzer.review", return_value={"status": "no_change"}) as run, patch("builtins.print"):
+            code = analyzer_main(["--root", str(self.root), "--run-dir", "logs"])
+        self.assertEqual(code, 0)
+        run.assert_called_once_with(self.directory.resolve(), force=False, feedback=None)
+
+    def test_analyzer_reviews_generic_runtime_without_preloaded_context(self):
+        from examples.list_sorting import ListEnvironment, DemoPlanner, DemoDetector
+        from pac_harness.runtime import Harness
+        directory = self.root / 'logs/generic-learning'
+        env = ListEnvironment(directory, [3, 1, 2])
+        identity = {'factory': 'examples.list_sorting:create', 'settings': {}}
+        result = Harness(self.root, env, DemoPlanner(), DemoDetector(), identity=identity,
+                         output=lambda _: None).run('Sort the list', directory)
+        self.assertEqual(result['status'], 'completed')
+        write_json(directory / 'result.json', result)
+        _, data = collect_run(self.root, directory)
+        outcome = next(e for e in data['events'] if e['event'] == 'action_result')
+        advice = {**finding(outcome['event_index'], quote='items'), 'id': 'preserve-list-elements',
+                  'task_keywords': ['list'], 'condition': 'When sorting a list.',
+                  'lesson': 'Preserve its elements.', 'verification': 'Verify order and membership.',
+                  'recheck_when': 'Recheck when the task changes.'}
+        client = Client(review([advice]), review([advice]))
+        assistant = Analyzer(self.root, {'chunk_turns': 8}, {'model': 'test'}, client=client, output=lambda _: None)
+        report = assistant.review(directory)
+        self.assertEqual(report['status'], 'applied')
+        rules = loads((self.root / ROLE_MEMORY_PATHS['planner']).read_text(encoding='utf-8'))
+        self.assertEqual(rules[0]['scope']['context'], '')
+        self.assertEqual(rules[0]['scope']['adapter'], identity['factory'])
 
 
 if __name__ == "__main__":

@@ -20,5 +20,6 @@
     }
   },
   "run": {"max_turns": 40, "max_failures": 3},
-  "to_user": {"enabled": true, "timeout_s": 900, "test_timeout_s": 180, "max_repair_attempts": 2}
+  "to_user": {"enabled": true, "timeout_s": 900, "test_timeout_s": 180, "max_repair_attempts": 2},
+  "analyzer": {"enabled": false, "chunk_turns": 8}
 }

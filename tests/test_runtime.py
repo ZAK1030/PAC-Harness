@@ -104,7 +104,7 @@ class RuntimeTests(unittest.TestCase):
         environment = FaultEnvironment(self.run)
         environment.terminal_result = lambda: {
             "status": "completed", "reason": "task_success", "success": True,
-            "completion_source": "libero.check_success"} if environment.calls else None
+            "completion_source": "adapter.check_completion"} if environment.calls else None
 
         class UncertainDetector:
             calls = 0

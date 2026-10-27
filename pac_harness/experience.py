@@ -19,7 +19,7 @@ PRIORITIES = {"low": 0, "normal": 1, "critical": 2}
 def validate_metadata(item):
     if not isinstance(item.get("priority", "normal"), str) or item.get("priority", "normal") not in PRIORITIES:
         raise ValueError("Invalid finding priority")
-    if not isinstance(item.get("applicability", "suite"), str) or item.get("applicability", "suite") not in {"suite", "adapter"}:
+    if not isinstance(item.get("applicability", "context"), str) or item.get("applicability", "context") not in {"context", "adapter"}:
         raise ValueError("Invalid finding applicability")
     if item.get("keyword_match", "all") not in ("all", "any"):
         raise ValueError("Invalid keyword matching mode")
@@ -48,7 +48,7 @@ def run_scope(payload):
     observation = payload.get("observation", payload.get("after", {})) or {}
     settings = adapter.get("settings", {})
     return {"adapter": adapter.get("factory", ""),
-            "suite": observation.get("suite", settings.get("suite", "")),
+            "context": observation.get("context", settings.get("context", "")),
             "task": state.get("task", observation.get("instruction", ""))}
 
 
@@ -82,11 +82,11 @@ class Experience:
             match = item["scope"]
             words = [word.casefold() in scope["task"].casefold() for word in match["task_keywords"]]
             relevant = any(words) if match.get("keyword_match") == "any" else all(words)
-            if (match["adapter"] != scope["adapter"] or match["suite"] not in {scope["suite"], "*"}
+            if (match["adapter"] != scope["adapter"] or match["context"] not in {scope["context"], "*"}
                     or not relevant):
                 continue
             candidates.append((PRIORITIES[item.get("priority", "normal")],
-                sum(words), match["suite"] == scope["suite"], index, item))
+                sum(words), match["context"] == scope["context"], index, item))
         seen = set()
         for *_, item in sorted(candidates, key=lambda entry: entry[:-1], reverse=True):
             if item["id"] in seen:
@@ -135,7 +135,7 @@ class Experience:
             updated = []
             for finding in findings:
                 match = {"adapter": scope["adapter"],
-                         "suite": "*" if finding.get("applicability") == "adapter" else scope["suite"],
+                         "context": "*" if finding.get("applicability") == "adapter" else scope["context"],
                          "task_keywords": sorted({word.casefold() for word in finding["task_keywords"]})}
                 if finding.get("keyword_match") == "any":
                     match["keyword_match"] = "any"

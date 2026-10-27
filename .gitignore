@@ -25,7 +25,7 @@ scenes/
 .deps/
 
 .venv
-.venv-libero-pro/
+.venv-*/
 
 # Local experiment evidence, downloads, videos and simulation arrays.
 /artifacts/
